@@ -19,6 +19,8 @@ Intermediate scalar arithmetic uses double precision as JavaScript does. Base po
 
 The instance clock starts at zero rather than inheriting browser page uptime. Delta is capped at 0.05 seconds, and spring substeps are at most 1/120 seconds, matching the reference loop. This preserves the original low-FPS slowdown policy rather than adding elapsed-time catch-up.
 
+Mouse input is deliberately adapted for the desktop: the node polls `DisplayServer.MouseGetPosition` each playing frame, independently of viewport input events and character bounds. Coordinates are normalized using the owning window's display origin and size; the display remains the reference when the cursor moves to another monitor. A valid display sets the existing simulation `MouseInside` gate true even outside the window. Headless environments without display dimensions leave the gate false. Pure simulation and manual `Advance` still accept normalized mouse values directly.
+
 Breathing remains active independently of the Idle switch. The Physics switch controls hair displacement, while the bust formula continues to use its own parameter and spring, matching the original behavior. `Playing=false` freezes the complete simulation.
 
 ## Rendering

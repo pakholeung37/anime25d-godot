@@ -16,6 +16,8 @@ public partial class Demo : Control
 
     public override void _Ready()
     {
+        if (OS.GetCmdlineUserArgs().Contains("--record-idle")) { AddChild(new IdleRecording()); return; }
+        if (OS.GetCmdlineUserArgs().Contains("--mouse-tests")) { AddChild(new MouseChecks()); return; }
         if (OS.GetCmdlineUserArgs().Contains("--render-tests")) { AddChild(new RenderChecks()); return; }
         BuildUi(); LoadSample("sample-a");
         if (OS.GetCmdlineUserArgs().Contains("--capture-demo")) CaptureDemo();
@@ -67,6 +69,7 @@ public partial class Demo : Control
         foreach (var key in new[] { "Idle", "Blink", "Random", "Talk", "Physics", "Mouse" })
         {
             var toggle = new CheckButton { Text = key, ButtonPressed = key != "Mouse" }; toggles[key] = toggle; automatic.AddChild(toggle);
+            if (key == "Mouse") toggle.TooltipText = "Follow the mouse across the entire screen, including outside this window.";
             toggle.Toggled += value =>
             {
                 if (actor.Simulation is not { } sim) return;

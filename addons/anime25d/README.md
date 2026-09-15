@@ -14,6 +14,7 @@ Public node controls:
 - `AutomaticProcessing=false` gives the caller manual timing via `Advance(delta)`.
 - `RefreshPose()` applies direct layer changes without advancing time.
 - `Simulation.Auto`, `Simulation.Target`, `Simulation.Frame` and `Simulation.Parts` expose per-instance controls. Call `Simulation.SetBlinkEnabled` to cancel/reset an active blink when switching it off.
+- With `Simulation.Auto.Mouse=true`, automatic processing polls the global desktop cursor, normalized against the display containing the game window. Tracking continues outside the character and window; other-display positions clamp to the same reference display's edges. Manual `Advance` continues to use caller-supplied normalized mouse values.
 - `ClearModel()` releases instance rendering resources. Shared model textures remain usable by other instances.
 
 The local origin is the top-left of the original model canvas. Rendering uses dynamic 2D meshes and per-instance eye-mask SubViewports. Validate other rendering backends before using them; the sample project uses Compatibility.
