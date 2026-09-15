@@ -18,8 +18,8 @@ Func<double> Seeded()
 }
 foreach (var spec in Parameters.Specs)
 {
-    Near(spec.Default, reference.GetProperty("defaults").GetProperty(spec.Key.ToString()).GetDouble(), 0, "default " + spec.Key);
-    var range = reference.GetProperty("ranges").GetProperty(spec.Key.ToString());
+    Near(spec.Default, reference.GetProperty("defaults").GetProperty(spec.LegacyName).GetDouble(), 0, "default " + spec.Key);
+    var range = reference.GetProperty("ranges").GetProperty(spec.LegacyName);
     Near(spec.Min, range[0].GetDouble(), 0, "min " + spec.Key); Near(spec.Max, range[1].GetDouble(), 0, "max " + spec.Key);
 }
 foreach (var model in reference.GetProperty("models").EnumerateArray())
@@ -29,11 +29,11 @@ foreach (var model in reference.GetProperty("models").EnumerateArray())
     {
         cases++; var sim = new RigSimulation(definition, Seeded());
         var label = model.GetProperty("name").GetString() + "/" + test.GetProperty("name").GetString();
-        foreach (var p in test.GetProperty("pose").EnumerateObject()) sim.SetParameter(Enum.Parse<Parameter>(p.Name), p.Value.GetDouble(), true);
-        if (!test.TryGetProperty("animated", out var animated) || !animated.GetBoolean()) sim.Auto.DisableAll();
-        if (test.TryGetProperty("physics", out var physics)) sim.Auto.Physics = physics.GetBoolean();
+        foreach (var p in test.GetProperty("pose").EnumerateObject()) sim.SetParameter(ParameterNames.Parse(p.Name), p.Value.GetDouble(), true);
+        if (!test.TryGetProperty("animated", out var animated) || !animated.GetBoolean()) sim.AutomaticMotion.DisableAll();
+        if (test.TryGetProperty("physics", out var physics)) sim.AutomaticMotion.Physics = physics.GetBoolean();
         if (test.TryGetProperty("preset", out var preset)) sim.SetPreset(preset.GetString());
-        if (test.TryGetProperty("mouse", out var mouse)) { sim.Auto.Mouse = true; sim.MouseInside = true; sim.MouseX = mouse.GetProperty("x").GetDouble(); sim.MouseY = mouse.GetProperty("y").GetDouble(); }
+        if (test.TryGetProperty("mouse", out var mouse)) { sim.AutomaticMotion.Mouse = true; sim.Pointer.IsAvailable = true; sim.Pointer.Horizontal = mouse.GetProperty("x").GetDouble(); sim.Pointer.Vertical = mouse.GetProperty("y").GetDouble(); }
         var byName = sim.Parts.ToDictionary(p => p.Definition.Name);
         int previous = 0; double fps = test.TryGetProperty("fps", out var fp) ? fp.GetDouble() : 60;
         foreach (var expected in test.GetProperty("checkpoints").EnumerateArray())
@@ -44,7 +44,7 @@ foreach (var model in reference.GetProperty("models").EnumerateArray())
             var values = expected.GetProperty("values");
             foreach (var spec in Parameters.Specs)
             {
-                double ev = values.GetProperty(spec.Key.ToString()).GetDouble();
+                double ev = values.GetProperty(spec.LegacyName).GetDouble();
                 maxParameterError = Math.Max(maxParameterError, Math.Abs(sim.Frame[spec.Key] - ev));
                 Near(sim.Frame[spec.Key], ev, 1e-9, label + "/" + spec.Key);
             }
@@ -71,8 +71,8 @@ foreach (var model in reference.GetProperty("models").EnumerateArray())
     }
     // Resource sharing must not share mutable positions, parameters or springs.
     var first = new RigSimulation(definition, Seeded()); var second = new RigSimulation(definition, Seeded());
-    first.SetParameter(Parameter.angleX, 1, true); first.Step(1.0 / 60);
-    Require(second.Target[Parameter.angleX] == 0 && second.TimeMilliseconds == 0, "Instance state leaked.");
+    first.SetParameter(Parameter.HeadYaw, 1, true); first.Step(1.0 / 60);
+    Require(second.Target[Parameter.HeadYaw] == 0 && second.TimeMilliseconds == 0, "Instance state leaked.");
     Require(!ReferenceEquals(first.Parts[0].Positions, second.Parts[0].Positions), "Shared mutable vertex buffer.");
     var stable = new RigSimulation(definition, Seeded());
     for (int i = 0; i < 300; i++) stable.Step(i % 2 == 0 ? 0.5 : 1.0 / 144);
@@ -82,8 +82,9 @@ Require(sawLongBlink, "Long-blink reference coverage was not exercised.");
 foreach (var fps in new[] { 10, 30, 60, 144 })
 {
     var spring = new Spring(); for (int i = 0; i < fps * 10; i++) spring.Step(20, 140, 4.2, 1.0 / fps);
-    Near(spring.X, 20, 0.01, "spring convergence");
+    Near(spring.Position, 20, 0.01, "spring convergence");
 }
-var report = new { cases, comparisons, maxPositionError, maxParameterError, sawLongBlink, status = "passed" };
+int architectureChecks = ArchitectureChecks.Run(root);
+var report = new { cases, comparisons, maxPositionError, maxParameterError, sawLongBlink, architectureChecks, status = "passed" };
 File.WriteAllText(Path.Combine(root, "artifacts/core-tests.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
 Console.WriteLine(JsonSerializer.Serialize(report));

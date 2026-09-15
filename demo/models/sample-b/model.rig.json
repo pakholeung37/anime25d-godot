@@ -1,6 +1,6 @@
 {
   "format": "anime25d-rig",
-  "version": 1,
+  "version": 2,
   "name": "sample.psd",
   "canvas": {
     "w": 1280,
@@ -16,10 +16,9 @@
       "z": 0,
       "depth": 0.55,
       "group": "head",
-      "phys": "hair",
       "opacity": 1,
-      "fade": null,
-      "side": null,
+      "fade": "None",
+      "side": "None",
       "strands": [
         {
           "x": 55,
@@ -52,7 +51,9 @@
           "rootY": 1001
         }
       ],
-      "texture": 0
+      "texture": 0,
+      "role": "Generic",
+      "physicsMesh": true
     },
     {
       "name": "handwear",
@@ -63,12 +64,13 @@
       "z": 1,
       "depth": 0.86,
       "group": "body",
-      "phys": null,
       "opacity": 1,
-      "fade": null,
-      "side": null,
+      "fade": "None",
+      "side": "None",
       "strands": null,
-      "texture": 1
+      "texture": 1,
+      "role": "ArmClothing",
+      "physicsMesh": false
     },
     {
       "name": "ears",
@@ -79,12 +81,13 @@
       "z": 2,
       "depth": 0.96,
       "group": "head",
-      "phys": null,
       "opacity": 1,
-      "fade": null,
-      "side": null,
+      "fade": "None",
+      "side": "None",
       "strands": null,
-      "texture": 2
+      "texture": 2,
+      "role": "Generic",
+      "physicsMesh": false
     },
     {
       "name": "face",
@@ -95,12 +98,13 @@
       "z": 3,
       "depth": 1,
       "group": "head",
-      "phys": null,
       "opacity": 1,
-      "fade": null,
-      "side": null,
+      "fade": "None",
+      "side": "None",
       "strands": null,
-      "texture": 3
+      "texture": 3,
+      "role": "Face",
+      "physicsMesh": false
     },
     {
       "name": "mouth_open",
@@ -111,12 +115,13 @@
       "z": 4,
       "depth": 1.08,
       "group": "head",
-      "phys": null,
       "opacity": 1,
-      "fade": "mouthOpen",
-      "side": null,
+      "fade": "OpenMouth",
+      "side": "None",
       "strands": null,
-      "texture": 4
+      "texture": 4,
+      "role": "OpenMouth",
+      "physicsMesh": false
     },
     {
       "name": "mouth_close",
@@ -127,12 +132,13 @@
       "z": 5,
       "depth": 1.08,
       "group": "head",
-      "phys": null,
-      "fade": "mouthClose",
-      "side": null,
+      "fade": "ClosedMouth",
+      "side": "None",
       "strands": null,
       "synthetic": true,
-      "texture": 5
+      "texture": 5,
+      "role": "ClosedMouth",
+      "physicsMesh": false
     },
     {
       "name": "eyebrow_l",
@@ -143,12 +149,13 @@
       "z": 6,
       "depth": 1.14,
       "group": "head",
-      "phys": null,
       "opacity": 1,
-      "fade": null,
-      "side": "L",
+      "fade": "None",
+      "side": "Left",
       "strands": null,
-      "texture": 6
+      "texture": 6,
+      "role": "Eyebrow",
+      "physicsMesh": false
     },
     {
       "name": "eyebrow_r",
@@ -159,12 +166,13 @@
       "z": 7,
       "depth": 1.14,
       "group": "head",
-      "phys": null,
       "opacity": 1,
-      "fade": null,
-      "side": "R",
+      "fade": "None",
+      "side": "Right",
       "strands": null,
-      "texture": 7
+      "texture": 7,
+      "role": "Eyebrow",
+      "physicsMesh": false
     },
     {
       "name": "eyewhite_l",
@@ -175,12 +183,13 @@
       "z": 8,
       "depth": 1.06,
       "group": "head",
-      "phys": null,
       "opacity": 1,
-      "fade": "eyeOpen",
-      "side": "L",
+      "fade": "OpenEye",
+      "side": "Left",
       "strands": null,
-      "texture": 8
+      "texture": 8,
+      "role": "EyeWhite",
+      "physicsMesh": false
     },
     {
       "name": "eyewhite_r",
@@ -191,12 +200,13 @@
       "z": 9,
       "depth": 1.06,
       "group": "head",
-      "phys": null,
       "opacity": 1,
-      "fade": "eyeOpen",
-      "side": "R",
+      "fade": "OpenEye",
+      "side": "Right",
       "strands": null,
-      "texture": 9
+      "texture": 9,
+      "role": "EyeWhite",
+      "physicsMesh": false
     },
     {
       "name": "eyelash_l",
@@ -207,12 +217,13 @@
       "z": 10,
       "depth": 1.12,
       "group": "head",
-      "phys": null,
       "opacity": 1,
-      "fade": "eyeOpen",
-      "side": "L",
+      "fade": "OpenEye",
+      "side": "Left",
       "strands": null,
-      "texture": 10
+      "texture": 10,
+      "role": "Generic",
+      "physicsMesh": false
     },
     {
       "name": "eyelash_r",
@@ -223,12 +234,13 @@
       "z": 11,
       "depth": 1.12,
       "group": "head",
-      "phys": null,
       "opacity": 1,
-      "fade": "eyeOpen",
-      "side": "R",
+      "fade": "OpenEye",
+      "side": "Right",
       "strands": null,
-      "texture": 11
+      "texture": 11,
+      "role": "Generic",
+      "physicsMesh": false
     },
     {
       "name": "eye_close_l",
@@ -239,12 +251,13 @@
       "z": 12,
       "depth": 1.12,
       "group": "head",
-      "phys": null,
-      "fade": "eyeClose",
-      "side": "L",
+      "fade": "ClosedEye",
+      "side": "Left",
       "strands": null,
       "synthetic": true,
-      "texture": 12
+      "texture": 12,
+      "role": "ClosedEye",
+      "physicsMesh": false
     },
     {
       "name": "eye_close_r",
@@ -255,12 +268,13 @@
       "z": 13,
       "depth": 1.12,
       "group": "head",
-      "phys": null,
-      "fade": "eyeClose",
-      "side": "R",
+      "fade": "ClosedEye",
+      "side": "Right",
       "strands": null,
       "synthetic": true,
-      "texture": 13
+      "texture": 13,
+      "role": "ClosedEye",
+      "physicsMesh": false
     },
     {
       "name": "irides_l",
@@ -271,12 +285,13 @@
       "z": 14,
       "depth": 1.08,
       "group": "head",
-      "phys": null,
       "opacity": 1,
-      "fade": "eyeOpen",
-      "side": "L",
+      "fade": "OpenEye",
+      "side": "Left",
       "strands": null,
-      "texture": 14
+      "texture": 14,
+      "role": "Iris",
+      "physicsMesh": false
     },
     {
       "name": "irides_r",
@@ -287,12 +302,13 @@
       "z": 15,
       "depth": 1.08,
       "group": "head",
-      "phys": null,
       "opacity": 1,
-      "fade": "eyeOpen",
-      "side": "R",
+      "fade": "OpenEye",
+      "side": "Right",
       "strands": null,
-      "texture": 15
+      "texture": 15,
+      "role": "Iris",
+      "physicsMesh": false
     },
     {
       "name": "front hair",
@@ -303,10 +319,9 @@
       "z": 16,
       "depth": 1.28,
       "group": "head",
-      "phys": "hair",
       "opacity": 1,
-      "fade": null,
-      "side": null,
+      "fade": "None",
+      "side": "None",
       "strands": [
         {
           "x": 301,
@@ -339,7 +354,9 @@
           "rootY": 523
         }
       ],
-      "texture": 16
+      "texture": 16,
+      "role": "Fringe",
+      "physicsMesh": true
     }
   ],
   "anchors": {

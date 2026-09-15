@@ -63,7 +63,7 @@ if(require.main===module){
   fs.writeFileSync(path.join(out,'.gdignore'),'');
   const all=[];
   for(const name of ['sample-a','sample-b']){
-    const rig=JSON.parse(fs.readFileSync(path.join(root,'demo/models',name,'model.rig.json')));
+    const rig=require('./rig-schema.cjs').toReference(JSON.parse(fs.readFileSync(path.join(root,'demo/models',name,'model.rig.json'))));
     all.push({name,rig,cases:casesFor(rig)});
     // Synthetic alternate close layers exercise the original 20% long-blink path.
     if(name==='sample-a'){

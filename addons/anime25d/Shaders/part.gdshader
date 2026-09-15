@@ -1,6 +1,8 @@
 shader_type canvas_item;
 render_mode unshaded, blend_premul_alpha;
 
+#include "deformation.gdshaderinc"
+
 uniform float layer_alpha = 1.0;
 uniform bool clip_eye = false;
 uniform sampler2D eye_mask : filter_nearest, repeat_disable;
@@ -9,6 +11,7 @@ varying vec2 model_position;
 varying vec4 item_color;
 
 void vertex() {
+    VERTEX = deform_vertex(VERTEX, VERTEX_ID);
     model_position = VERTEX;
     item_color = COLOR;
 }

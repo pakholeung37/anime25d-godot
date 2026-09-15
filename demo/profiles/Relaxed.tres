@@ -1,0 +1,7 @@
+[gd_resource type="Resource" script_class="AnimeRigProfile" load_steps=2 format=3]
+
+[ext_resource type="Script" path="res://addons/anime25d/AnimeRigProfile.cs" id="1"]
+
+[resource]
+script = ExtResource("1")
+SettingsJson = "{\"Motion\":{\"Idle\":{\"YawPrimary\":{\"Amplitude\":0.08,\"AngularFrequency\":0.35}},\"Breath\":{\"PeriodSeconds\":4.2}},\"Physics\":{\"StiffHair\":{\"Stiffness\":60,\"Damping\":9,\"DisplacementScale\":2.2}}}"
