@@ -1,0 +1,2 @@
+# Preserve the upstream snapshot byte-for-byte, including its original whitespace.
+tools/vendor/anime25d/** -whitespace

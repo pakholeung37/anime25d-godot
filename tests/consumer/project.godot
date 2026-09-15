@@ -1,0 +1,9 @@
+config_version=5
+[application]
+config/name="Anime25D Independent Consumer"
+run/main_scene="res://Consumer.tscn"
+config/features=PackedStringArray("4.7", "C#", "GL Compatibility")
+[dotnet]
+project/assembly_name="Consumer"
+[rendering]
+renderer/rendering_method="gl_compatibility"

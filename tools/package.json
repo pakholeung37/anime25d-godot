@@ -1,0 +1,9 @@
+{
+  "name": "anime25d-comparison-tools",
+  "private": true,
+  "description": "Optional browser rendering comparison; offline conversion and numerical reference generation need Node built-ins only.",
+  "devDependencies": {
+    "playwright": "^1.55.0",
+    "pngjs": "^7.0.0"
+  }
+}

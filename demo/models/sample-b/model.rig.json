@@ -1,0 +1,401 @@
+{
+  "format": "anime25d-rig",
+  "version": 1,
+  "name": "sample.psd",
+  "canvas": {
+    "w": 1280,
+    "h": 1280
+  },
+  "layers": [
+    {
+      "name": "back hair",
+      "x": 28,
+      "y": 77,
+      "w": 1246,
+      "h": 1036,
+      "z": 0,
+      "depth": 0.55,
+      "group": "head",
+      "phys": "hair",
+      "opacity": 1,
+      "fade": null,
+      "side": null,
+      "strands": [
+        {
+          "x": 55,
+          "tipY": 1099,
+          "rootY": 1014
+        },
+        {
+          "x": 333,
+          "tipY": 1092,
+          "rootY": 463
+        },
+        {
+          "x": 484,
+          "tipY": 1092,
+          "rootY": 129
+        },
+        {
+          "x": 635,
+          "tipY": 1092,
+          "rootY": 81
+        },
+        {
+          "x": 907,
+          "tipY": 1093,
+          "rootY": 420
+        },
+        {
+          "x": 1197,
+          "tipY": 1110,
+          "rootY": 1001
+        }
+      ],
+      "texture": 0
+    },
+    {
+      "name": "handwear",
+      "x": 317,
+      "y": 475,
+      "w": 649,
+      "h": 629,
+      "z": 1,
+      "depth": 0.86,
+      "group": "body",
+      "phys": null,
+      "opacity": 1,
+      "fade": null,
+      "side": null,
+      "strands": null,
+      "texture": 1
+    },
+    {
+      "name": "ears",
+      "x": 452,
+      "y": 385,
+      "w": 373,
+      "h": 126,
+      "z": 2,
+      "depth": 0.96,
+      "group": "head",
+      "phys": null,
+      "opacity": 1,
+      "fade": null,
+      "side": null,
+      "strands": null,
+      "texture": 2
+    },
+    {
+      "name": "face",
+      "x": 454,
+      "y": 165,
+      "w": 352,
+      "h": 436,
+      "z": 3,
+      "depth": 1,
+      "group": "head",
+      "phys": null,
+      "opacity": 1,
+      "fade": null,
+      "side": null,
+      "strands": null,
+      "texture": 3
+    },
+    {
+      "name": "mouth_open",
+      "x": 615,
+      "y": 509,
+      "w": 57,
+      "h": 53,
+      "z": 4,
+      "depth": 1.08,
+      "group": "head",
+      "phys": null,
+      "opacity": 1,
+      "fade": "mouthOpen",
+      "side": null,
+      "strands": null,
+      "texture": 4
+    },
+    {
+      "name": "mouth_close",
+      "x": 615,
+      "y": 518,
+      "w": 57,
+      "h": 14,
+      "z": 5,
+      "depth": 1.08,
+      "group": "head",
+      "phys": null,
+      "fade": "mouthClose",
+      "side": null,
+      "strands": null,
+      "synthetic": true,
+      "texture": 5
+    },
+    {
+      "name": "eyebrow_l",
+      "x": 483,
+      "y": 329,
+      "w": 102,
+      "h": 33,
+      "z": 6,
+      "depth": 1.14,
+      "group": "head",
+      "phys": null,
+      "opacity": 1,
+      "fade": null,
+      "side": "L",
+      "strands": null,
+      "texture": 6
+    },
+    {
+      "name": "eyebrow_r",
+      "x": 672,
+      "y": 313,
+      "w": 103,
+      "h": 26,
+      "z": 7,
+      "depth": 1.14,
+      "group": "head",
+      "phys": null,
+      "opacity": 1,
+      "fade": null,
+      "side": "R",
+      "strands": null,
+      "texture": 7
+    },
+    {
+      "name": "eyewhite_l",
+      "x": 502,
+      "y": 402,
+      "w": 89,
+      "h": 51,
+      "z": 8,
+      "depth": 1.06,
+      "group": "head",
+      "phys": null,
+      "opacity": 1,
+      "fade": "eyeOpen",
+      "side": "L",
+      "strands": null,
+      "texture": 8
+    },
+    {
+      "name": "eyewhite_r",
+      "x": 688,
+      "y": 386,
+      "w": 82,
+      "h": 53,
+      "z": 9,
+      "depth": 1.06,
+      "group": "head",
+      "phys": null,
+      "opacity": 1,
+      "fade": "eyeOpen",
+      "side": "R",
+      "strands": null,
+      "texture": 9
+    },
+    {
+      "name": "eyelash_l",
+      "x": 474,
+      "y": 380,
+      "w": 118,
+      "h": 84,
+      "z": 10,
+      "depth": 1.12,
+      "group": "head",
+      "phys": null,
+      "opacity": 1,
+      "fade": "eyeOpen",
+      "side": "L",
+      "strands": null,
+      "texture": 10
+    },
+    {
+      "name": "eyelash_r",
+      "x": 674,
+      "y": 366,
+      "w": 126,
+      "h": 80,
+      "z": 11,
+      "depth": 1.12,
+      "group": "head",
+      "phys": null,
+      "opacity": 1,
+      "fade": "eyeOpen",
+      "side": "R",
+      "strands": null,
+      "texture": 11
+    },
+    {
+      "name": "eye_close_l",
+      "x": 500,
+      "y": 408,
+      "w": 92,
+      "h": 44,
+      "z": 12,
+      "depth": 1.12,
+      "group": "head",
+      "phys": null,
+      "fade": "eyeClose",
+      "side": "L",
+      "strands": null,
+      "synthetic": true,
+      "texture": 12
+    },
+    {
+      "name": "eye_close_r",
+      "x": 686,
+      "y": 402,
+      "w": 85,
+      "h": 29,
+      "z": 13,
+      "depth": 1.12,
+      "group": "head",
+      "phys": null,
+      "fade": "eyeClose",
+      "side": "R",
+      "strands": null,
+      "synthetic": true,
+      "texture": 13
+    },
+    {
+      "name": "irides_l",
+      "x": 517,
+      "y": 396,
+      "w": 68,
+      "h": 57,
+      "z": 14,
+      "depth": 1.08,
+      "group": "head",
+      "phys": null,
+      "opacity": 1,
+      "fade": "eyeOpen",
+      "side": "L",
+      "strands": null,
+      "texture": 14
+    },
+    {
+      "name": "irides_r",
+      "x": 689,
+      "y": 382,
+      "w": 66,
+      "h": 56,
+      "z": 15,
+      "depth": 1.08,
+      "group": "head",
+      "phys": null,
+      "opacity": 1,
+      "fade": "eyeOpen",
+      "side": "R",
+      "strands": null,
+      "texture": 15
+    },
+    {
+      "name": "front hair",
+      "x": 279,
+      "y": 116,
+      "w": 739,
+      "h": 832,
+      "z": 16,
+      "depth": 1.28,
+      "group": "head",
+      "phys": "hair",
+      "opacity": 1,
+      "fade": null,
+      "side": null,
+      "strands": [
+        {
+          "x": 301,
+          "tipY": 934,
+          "rootY": 525
+        },
+        {
+          "x": 468,
+          "tipY": 843,
+          "rootY": 196
+        },
+        {
+          "x": 551,
+          "tipY": 625,
+          "rootY": 134
+        },
+        {
+          "x": 673,
+          "tipY": 435,
+          "rootY": 121
+        },
+        {
+          "x": 799,
+          "tipY": 755,
+          "rootY": 224
+        },
+        {
+          "x": 922,
+          "tipY": 799,
+          "rootY": 523
+        }
+      ],
+      "texture": 16
+    }
+  ],
+  "anchors": {
+    "face": {
+      "cx": 633.103543536303,
+      "cy": 366.9812156776956,
+      "x0": 456,
+      "x1": 803,
+      "y0": 167,
+      "y1": 598
+    },
+    "eyeL": {
+      "x0": 504,
+      "x1": 588,
+      "y0": 404,
+      "y1": 450,
+      "icx": 551.4383681777335,
+      "icy": 423.4717009439463,
+      "closeY": 432.52
+    },
+    "eyeR": {
+      "x0": 690,
+      "x1": 767,
+      "y0": 388,
+      "y1": 436,
+      "icx": 722.7025125002662,
+      "icy": 409.43336821779695,
+      "closeY": 417.76
+    },
+    "mouth": {
+      "x0": 617,
+      "x1": 669,
+      "y0": 511,
+      "y1": 559,
+      "cx": 643.6135258852496,
+      "cy": 533.8531108314814
+    },
+    "neckPivot": {
+      "cx": 633.103543536303,
+      "cy": 618
+    },
+    "neckTop": 598,
+    "neckBottom": 658,
+    "bodyPivot": {
+      "cx": 633.103543536303,
+      "cy": 1280
+    },
+    "faceScale": 1.042042042042042,
+    "hairRootY": 227
+  },
+  "warnings": [
+    "不足する閉じ目を自動配置しました（「目」の差分バーで調整可）",
+    "mouth_close が無いため汎用閉じ口を自動配置しました（「口」のバーで調整可）"
+  ],
+  "synth": {
+    "eye": true,
+    "mouth": true
+  }
+}

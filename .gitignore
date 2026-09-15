@@ -1,0 +1,7 @@
+.godot/
+**/bin/
+**/obj/
+artifacts/
+.DS_Store
+*.user
+tools/node_modules/
