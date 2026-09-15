@@ -23,10 +23,8 @@ public sealed class MotionPipeline
 
     public void ResetBlink() => blink.Reset();
 
-    public void Compose(Parameters target, AutomaticMotion enabled, PointerInput pointer, bool expressionActive, double now, double deltaSeconds)
+    public void Compose(Parameters target, AutomaticMotion enabled, bool expressionActive, double now, double deltaSeconds)
     {
-        if (enabled.Mouse && pointer.IsAvailable)
-            GazeMotion.Apply(target, settings.Gaze, pointer.Horizontal, pointer.Vertical);
         if (enabled.Idle)
             IdleMotion.Apply(target, settings.Idle, now / 1000);
         if (enabled.Random)

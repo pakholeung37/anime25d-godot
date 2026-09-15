@@ -3,6 +3,7 @@ using System.Text.Json;
 using System.Text.Json.Nodes;
 using Anime25D;
 using Anime25D.Core;
+using Anime25D.Examples;
 using Godot;
 
 // Actual GPU readback versus CPU deformation, including every exposed parameter boundary.
@@ -24,6 +25,8 @@ public partial class BackendChecks : Node
             System.IO.Directory.CreateDirectory(output);
             foreach (string sample in new[] { "sample-a", "sample-b" })
                 await CheckModel(sample);
+            // Drain render-thread resource releases before terminating the native renderer.
+            await DrawFrames();
             System.IO.File.WriteAllText(System.IO.Path.Combine(output, "report.json"), JsonSerializer.Serialize(new
             {
                 reports,
@@ -225,23 +228,69 @@ public partial class BackendChecks : Node
         gpu.Actor.Position = new Vector2(-10000, -10000);
         gpu.Actor.Scale = Vector2.One * 0.1f;
         gpu.Actor.AutomaticProcessing = true;
-        gpu.Actor.Simulation!.AutomaticMotion.Mouse = true;
+        var tracker = new DesktopMouseTracking();
+        gpu.Actor.AddChild(tracker);
+        double sampledYaw = double.NaN, sampledPitch = double.NaN;
+        int poseCallbacks = 0;
+        void ObservePose(Parameters parameters)
+        {
+            sampledYaw = parameters[Parameter.HeadYaw];
+            sampledPitch = parameters[Parameter.HeadPitch];
+            poseCallbacks++;
+        }
+        gpu.Actor.PreparingPose += ObservePose;
         gpu.Actor._Process(1.0 / 60);
         int screen = GetWindow().CurrentScreen;
         Vector2I pointer = DisplayServer.MouseGetPosition();
         Vector2I origin = DisplayServer.ScreenGetPosition(screen);
         Vector2I screenSize = DisplayServer.ScreenGetSize(screen);
-        if (!gpu.Actor.Simulation.Pointer.IsAvailable ||
-            Math.Abs(gpu.Actor.Simulation.Pointer.Horizontal - ((pointer.X - origin.X) / (double)screenSize.X * 2 - 1)) > 0.05)
+        double expectedYaw = Math.Clamp(((pointer.X - origin.X) / (double)screenSize.X * 2 - 1) * tracker.HeadYawGain, -1, 1);
+        double expectedPitch = Math.Clamp(-((pointer.Y - origin.Y) / (double)screenSize.Y * 2 - 1) * tracker.HeadPitchGain, -1, 1);
+        if (poseCallbacks != 1 || !double.IsFinite(sampledYaw) || Math.Abs(sampledYaw - expectedYaw) > 0.05 || Math.Abs(sampledPitch - expectedPitch) > 0.05)
             throw new Exception("Desktop pointer tracking depends on actor coordinates.");
-        double frozenTime = gpu.Actor.Simulation.TimeMilliseconds;
+        double frozenTime = gpu.Actor.Simulation!.TimeMilliseconds;
         gpu.Actor.Playing = false;
         gpu.Actor._Process(1.0 / 60);
-        if (gpu.Actor.Simulation.TimeMilliseconds != frozenTime) throw new Exception("Paused actor advanced simulation.");
+        if (gpu.Actor.Simulation.TimeMilliseconds != frozenTime || poseCallbacks != 1) throw new Exception("Paused actor advanced simulation or sampled its input.");
         gpu.Actor.AutomaticProcessing = false;
         gpu.Actor.Playing = true;
         gpu.Actor.Position = Vector2.Zero;
         gpu.Actor.Scale = Vector2.One;
+
+        tracker.Enabled = false;
+        gpu.Actor.SetParameter(Parameter.HeadYaw, 0.25, true);
+        gpu.Actor.SetPreset("smile");
+        gpu.Actor.Advance(0);
+        if (sampledYaw != 0.25 || gpu.Actor.Simulation.ActivePreset != "smile")
+            throw new Exception("Disabled extension changed authored targets or expression lock.");
+
+        // Character-node subscriptions survive reloads but must detach from the old simulation.
+        var previousSimulation = gpu.Actor.Simulation;
+        gpu.Actor.LoadModel(model, Seeded());
+        int callbacksAfterReload = poseCallbacks;
+        previousSimulation.Step(0);
+        if (poseCallbacks != callbacksAfterReload) throw new Exception("Previous simulation retained node pose subscriptions.");
+        tracker.Enabled = true;
+        gpu.Actor.Advance(0);
+        if (poseCallbacks != callbacksAfterReload + 1) throw new Exception("Pose extension did not survive model reload.");
+
+        tracker.Character = cpu.Actor;
+        gpu.Actor.SetParameter(Parameter.HeadYaw, 0.25, true);
+        gpu.Actor.Advance(0);
+        if (sampledYaw != 0.25) throw new Exception("Retargeted extension remained attached to its previous character.");
+        double retargetedYaw = double.NaN;
+        void ObserveRetargeted(Parameters parameters) => retargetedYaw = parameters[Parameter.HeadYaw];
+        cpu.Actor.PreparingPose += ObserveRetargeted;
+        cpu.Actor.Advance(0);
+        if (!double.IsFinite(retargetedYaw) || Math.Abs(retargetedYaw - expectedYaw) > 0.05)
+            throw new Exception("Extension did not bind its explicit character.");
+        cpu.Actor.PreparingPose -= ObserveRetargeted;
+        tracker.Character = null;
+        tracker.Free();
+        gpu.Actor.Advance(0);
+        if (sampledYaw != 0.25) throw new Exception("Removed extension still overrides the pose.");
+        gpu.Actor.PreparingPose -= ObservePose;
+        GD.Print(name + ": optional mouse extension lifecycle passed.");
 
         Reset();
         foreach (var actor in new[] { cpu.Actor, gpu.Actor })

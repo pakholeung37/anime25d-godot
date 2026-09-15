@@ -1,50 +1,70 @@
 # Runtime architecture
 
-## Boundaries
+The refactor preserves the original default motion and deformation, not its monolithic organization.
+The project-level README remains an introduction; addon usage is documented in `addons/anime25d/README.md`.
 
-The only runtime deployment unit is `addons/anime25d`. Its C# source compiles in the consuming Godot project. The optional editor plugin manifest is discoverable in Project Settings; `[GlobalClass]` registers the node and resource after compilation without plugin activation.
+## Responsibilities
 
-The converter consumes layered PSDs and performs all content inference outside the addon. Runtime construction generates regular mesh topology and vertex influence weights from already-detected anchors and strand controls; it never parses PSD, scans image alpha, identifies layer names beyond the normalized rig conventions, or synthesizes missing textures.
+| Module | Responsibility |
+| --- | --- |
+| `Core/Model` | Typed rig metadata and mutable per-character layer state |
+| `Core/Compatibility` | One-time V1 name-to-role translation |
+| `Core/Parameters` | Readable pose keys, defaults, ranges, legacy string mapping |
+| `Core/Configuration` | Immutable motion, physics, mesh, deformation and expression settings |
+| `Core/Animation` | Independent idle, random, talk and blink state machines |
+| `Core/Physics` | Spring integration and motion-driven secondary movement |
+| `Core/Geometry` | Rest meshes, triangle indices and baked strand/fringe weights |
+| `Core/Deformation` | Layer visibility and the CPU reference deformation stages |
+| `Core/RigSimulation` | Orders pose composition, smoothing, physics and optional CPU evaluation |
+| `Rendering` | Godot resource ownership and GPU bindings |
+| `Shaders` | GPU feature, head, body and hair deformation shared by color/mask passes |
+| `AnimeRigNode` | Public character lifecycle and playback controls |
+| `demo/Input` | Demo-only desktop pointer sampling and pointer-to-pose mapping |
 
-`AnimeRigModel` holds manifest JSON and explicitly referenced texture resources. No absolute asset paths, original repository path, JavaScript files, or runtime file-system scan are needed to load the model in another project. Model definitions are treated as shared read-only data; simulation arrays are always per-instance.
+The core has no Godot dependency. The node is not a VN-specific integration layer.
 
-## Simulation
+## Frame contract
 
-- `Parameters`: all 35 original keys, bounds and defaults. Enum names match the upstream strings.
-- `RigSimulation`: independent target/current/frame values, instance clock, automatic movement, blinks, random talk, original expression presets and spring states. A random callback makes animation tests reproducible.
-- `PartState`: base/working positions, normalized UVs, triangle indices, Gaussian strand weights, longitudinal progress and front-hair three-block weights.
-- `RigDeformer`: exact ordered port of the original local feature, head, breath, bust, arm, bang, hair and final body transforms.
+Target parameters → external frame-local pose modifiers → idle → random → talk → blink → smoothing → breath/iris bounce → springs → visibility → rendering.
 
-Intermediate scalar arithmetic uses double precision as JavaScript does. Base positions, influence weights and final positions use Float32 arrays. The intermediate Float32 write before the final body rotation is retained. Values of `soft` above 1 intentionally extrapolate the hard/soft spring mixture; restricting that mixture would change the reference appearance.
+`PreparingPose` is a device-agnostic extension point, not an input system. It receives a scratch parameter buffer;
+overrides affect only that frame and never replace authored targets or unlock expressions. The Godot node relays the
+simulation event so controllers survive model reloads, and detaches from discarded simulations.
+Only the demo subscribes a desktop mouse controller. Its enable switch, gains and global-screen sampling live in `demo/Input`;
+there is no mouse state, tracking algorithm, OS input call or mouse configuration in the addon. No separate mouse plugin is shipped.
 
-The instance clock starts at zero rather than inheriting browser page uptime. Delta is capped at 0.05 seconds, and spring substeps are at most 1/120 seconds, matching the reference loop. This preserves the original low-FPS slowdown policy rather than adding elapsed-time catch-up.
+Ordering is deliberate: the original random-number consumption and blending precedence are regression-tested.
+Expressions suppress automatic talk/blink while active. Breathing and chest springs continue with the same original semantics;
+the Physics toggle gates hair deformation, not all secondary movement.
 
-Mouse input is deliberately adapted for the desktop: the node polls `DisplayServer.MouseGetPosition` each playing frame, independently of viewport input events and character bounds. Coordinates are normalized using the owning window's display origin and size; the display remains the reference when the cursor moves to another monitor. A valid display sets the existing simulation `MouseInside` gate true even outside the window. Headless environments without display dimensions leave the gate false. Pure simulation and manual `Advance` still accept normalized mouse values directly.
+In GPU mode the CPU never walks vertices during normal playback. It updates one per-actor RGBA float pose texture,
+per-part depth, alpha, and up to six spring displacement pairs. Meshes and three RGBA weight texels per vertex are uploaded only on load.
+The visible pass and eye-mask pass include the same deformation shader.
 
-Breathing remains active independently of the Idle switch. The Physics switch controls hair displacement, while the bust formula continues to use its own parameter and spring, matching the original behavior. `Playing=false` freezes the complete simulation.
+The CPU evaluator retains double precision and the original Float32 boundary before final body rotation.
+GPU arithmetic is float precision, so GPU equivalence is image-tolerance based, not a promise of bit-identical vertices.
+The Godot implementation uses the documented [CanvasItem vertex shader interface](https://docs.godotengine.org/en/stable/tutorials/shaders/shader_reference/canvas_item_shader.html).
 
-## Rendering
+## Configuration and compatibility
 
-Each part has one `MeshInstance2D`, texture and per-instance material. Topology and UVs are uploaded once; subsequent frames call `ArrayMesh.SurfaceUpdateVertexRegion` with a span over the existing Float32 position buffer. The mesh uses two-dimensional vertices and the dynamic-update flag. Mesh bounds include displacement beyond the unwarped rectangle.
+Artistic coefficients have descriptive names and live in profiles; polynomial constants, buffer layouts and safety limits remain implementation details.
+Angular frequency is radians/second; delays explicitly use milliseconds; spring integration and durations use seconds.
+Pixel coefficients retain their original model-space behavior. Only terms explicitly multiplied by FaceScale are face-scaled;
+normalizing every old pixel constant would change the visual baseline and is intentionally not part of this refactor.
 
-PNG imports premultiply alpha before texture filtering and disable alpha-border repair. The part shader uses `blend_premul_alpha` and correctly incorporates parent `Modulate` alpha. This matches the upstream WebGL `UNPACK_PREMULTIPLY_ALPHA_WEBGL` plus `ONE, ONE_MINUS_SRC_ALPHA` behavior.
+Godot profile resources use validated JSON backed by typed C# records. This avoids duplicating every setting in a second inspector schema.
+Profile overrides replace the entire model profile, with omitted fields falling back to reference defaults.
+Live simulations snapshot the authoring dictionaries; resource edits require a reload.
 
-Each character has separate left/right mask SubViewports at model canvas resolution. Active white-eye meshes are shared with the corresponding mask viewport. The mask shader discards texture alpha below 0.25 and writes an opaque mask. The iris shader samples the corresponding mask using interpolated deformed model coordinates, independent of parent transforms and layer draw order. Nearest sampling and a 0.5 cutoff keep the mask binary.
+PartRole, PartGroup, PartSide and FadeMode replace string-based behavior selection.
+Both bundled models use V2. The runtime compatibility adapter accepts V1, and offline tooling migrates existing manifests without touching textures.
+The original JavaScript oracle receives an explicit V2-to-V1 metadata translation; its formulas remain unmodified.
 
-This replaces WebGL stencil operations with an explicit mask texture. It costs two canvas-sized render targets per instance, but preserves individual eye masks, arbitrary order and separate instance state. Rendering is currently validated with the Compatibility backend.
+Shader parameter, role and channel indices are generated from C# declarations.
+Run `node tools/shader-bindings.cjs --check` after changes, or `--write` after deliberately changing the binding contract.
+CPU and GPU formulas remain separate implementations, covered by numerical and rendered regression tests.
 
-Godot API references: [ArrayMesh](https://docs.godotengine.org/en/4.7/classes/class_arraymesh.html), [CanvasItem shader reference](https://docs.godotengine.org/en/stable/tutorials/shaders/shader_reference/canvas_item_shader.html). The installed 4.7.2 GodotSharp XML was also checked for the C# span upload overload.
+## Deliberate boundaries
 
-## Ownership and lifecycle
-
-`LoadModel` validates the model and constructs CPU state before replacing the active instance. The node owns meshes, materials, draw nodes and mask viewports; `ClearModel` and tree exit release those resources. Textures are shared `Resource` objects owned by the model and are not explicitly disposed by individual characters.
-
-Model resource assignment is intended before entering the scene tree. Use `LoadModel` for a running instance. `AutomaticProcessing=false` delegates timing to the caller, which invokes `Advance`; `RefreshPose` updates layer edits without advancing clocks or physics. Target parameter edits use original smoothing unless `immediate` is requested or the node is paused.
-
-## Validation approach
-
-The numerical oracle extracts `prepareLayers`, `fadeAlpha`, `deform` and `animate` from the unchanged upstream `app.js`, with browser/GPU functions stubbed only during numerical tests. Every reference animation frame evaluates the original deformation, including hidden layers retaining their prior positions. Both implementations receive the same LCG random sequence, pose inputs and frame deltas.
-
-The image oracle reuses the upstream shader compilation, texture upload, binding and complete stencil/draw pass in actual Chrome WebGL. Positions come from the original numerical oracle. Godot independently simulates the corresponding sequence and captures its own render target. Comparison uses premultiplied RGBA; browser PNG output is unpremultiplied while Godot render-target readback is premultiplied.
-
-The standalone consumer test copies only the addon and one converted model into a fresh temporary project, builds with implicit usings disabled, imports and runs it. This checks the addon boundary independently of the demo application.
+No VN engine integration, PSD conversion in the addon, webcam, microphone, web support, or general-purpose model editor.
+Full-canvas eye-mask viewports remain in use. Multi-character GPU throughput, other renderers, exports and other desktop platforms are not yet benchmarked.

@@ -124,10 +124,9 @@ public sealed class AutomaticMotion
     public bool Blink { get; set; } = true;
     public bool Random { get; set; } = true;
     public bool Talk { get; set; } = true;
-    public bool Mouse { get; set; }
     public bool Physics { get; set; } = true;
     public void DisableAll()
     {
-        Idle = Blink = Random = Talk = Mouse = Physics = false;
+        Idle = Blink = Random = Talk = Physics = false;
     }
 }

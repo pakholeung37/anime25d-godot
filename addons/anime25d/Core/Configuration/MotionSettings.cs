@@ -15,7 +15,6 @@ public sealed record MotionSettings
     public double MaximumDeltaSeconds { get; init; } = 0.05;
     public double SmoothingRate { get; init; } = 14;
     public IdleSettings Idle { get; init; } = new();
-    public GazeSettings Gaze { get; init; } = new();
     public RandomMotionSettings Random { get; init; } = new();
     public TalkSettings Talk { get; init; } = new();
     public BlinkSettings Blink { get; init; } = new();
@@ -28,13 +27,6 @@ public sealed record IdleSettings
     public Wave Pitch { get; init; } = new(0.08, 0.31, 1.7);
     public Wave Roll { get; init; } = new(0.07, 0.23, 0.5);
     public Wave BodyRoll { get; init; } = new(0.10, 0.19, 2.1);
-}
-public sealed record GazeSettings
-{
-    public double HeadHorizontal { get; init; } = 0.9;
-    public double HeadVertical { get; init; } = 0.7;
-    public double EyeHorizontal { get; init; } = 1.2;
-    public double EyeVertical { get; init; } = 0.8;
 }
 public sealed record RandomMotionSettings
 {

@@ -1,66 +1,66 @@
-# 0.1 验收记录
+# Refactor validation
 
-日期：2026-09-15。参考源：`7450341934a8ff77bf05b90d9f708786e3eb3996`。
+Tested 2026-09-15 on macOS / Apple M4, Godot 4.7.2 Mono, .NET 10, Compatibility / OpenGL.
+The reference is pinned Anime2.5DRig commit `7450341934a8ff77bf05b90d9f708786e3eb3996`.
 
-环境：macOS / Apple M4、Godot `4.7.2.stable.mono.official.ed1daf0bf`、.NET SDK `10.0.400`，Compatibility / OpenGL renderer。浏览器参照由本机 Chrome WebGL 实际绘制。
+## Results
 
-## 数值对照：通过
+- Original JavaScript oracle: **167 cases, 1,143,442 comparisons**. Maximum CPU vertex error **0 pixels**;
+  maximum parameter error **2.22e-16**. Both samples, all parameter limits, four frame rates, expressions,
+  mouse input, physics-off and long-blink behavior are covered.
+- Architecture suite: **180 assertions** covering arbitrary model/part names, V2 models, profile defaults/ranges/reset,
+  custom expressions and mesh settings, authoring-state isolation, GPU-mode CPU bypass, readable/legacy keys,
+  malformed profiles, invalid deltas, frame-local pose overrides and input-free runtime boundaries.
+- Actual CPU-versus-GPU rendering: **194 image comparisons**, including every parameter boundary, continuous motion,
+  custom profiles, arbitrary part labels and alternate closed-eye layers. Worst mean channel error **0.00119 / 255**;
+  worst fraction of pixels with a channel difference above 12: **0.000153%**.
+- Original browser/WebGL versus Godot GPU rendering: **14 captures**, worst mean channel error **0.05065 / 255**.
+  Existing acceptance thresholds remain unchanged: mean ≤ 0.25, fraction above 12 ≤ 0.25%.
+- Visibility, iris-mask removal, layer reordering, independent instances and repeated clear/reload checks pass.
+- Demo-only desktop mouse sampling is independent of actor transforms; paused simulation does not advance or sample input.
+  Controller disable/removal, retargeting, expression preservation and model reload subscription cleanup are tested.
+- A separate project containing only the addon and sample model builds and loads without implicit usings,
+  demo code, converter dependencies or enabling the editor plugin.
+- Demo capture verified visually. Build: **0 warnings, 0 errors**. Generated shader bindings and `git diff --check` pass.
 
-使用未修改的原版 `prepareLayers`、`fadeAlpha`、`deform`、`animate` 生成独立参考数据。
+## CPU submission measurement
 
-- 原版全部 **35 个参数**的默认值与上下限一致。
-- **167 个用例，1,143,442 次数值比较**。
-- 最大顶点坐标差异：**0 像素**。
-- 最大参数差异：**2.220446049250313 × 10⁻¹⁶**。
-- 覆盖两个实际 sample、全部参数边界、眼口混合、左右单眼、图层反序，以及 10 / 30 / 60 / 144 FPS 动画序列。
-- 覆盖原版表情抑制自动眨眼/口型、鼠标输入、关闭头发物理，以及加入合成 `eye_close2` 图层后的长闭眼路径。
-- 验证独立实例没有共享顶点或参数状态，变帧率下坐标保持有限，弹簧能够收敛。
+Debug build; median of five 120-step batches after warm-up. Each step includes simulation and Godot resource submission.
+This measures CPU-side cost, **not GPU execution time or end-to-end FPS**.
 
-数值测试阈值：顶点 0.00025 像素，参数及透明度通常 10⁻⁹。报告：`artifacts/core-tests.json`。
+| Sample | CPU reference | GPU deformation | Per-step vertex upload, CPU → GPU |
+| --- | ---: | ---: | ---: |
+| A | ~0.12 ms | ~0.01 ms | 4,976 → 0 bytes |
+| B | ~0.22 ms | ~0.01 ms | 8,808 → 0 bytes |
 
-## 实际 GPU 渲染：通过
+GPU mode uploads a 256-byte pose texture plus per-part scalar/spring uniforms instead of vertices.
+Measured managed allocation is ~224 bytes per GPU step from the submission path; the CPU reference loop has no
+measurable steady-state managed allocation beyond the measurement harness. This is not a zero-allocation GPU claim.
 
-两个 sample 各 7 个姿态，共 **14 张** 1280 × 1280 透明确认图：neutral、turn、closed、wink、crossfade、animation60、reordered。
+## Reproduce
 
-Godot 独立计算姿态并绘制；浏览器使用原版 shader、纹理上传和 stencil 绘制流程。比较时统一为预乘 RGBA，忽略完全透明像素中没有意义的 RGB。
+From the repository root, with Node dependencies installed in `tools` and Godot on the path:
 
-| 指标 | 结果 |
-|---|---:|
-| 单张图最高平均通道误差（0–255） | 0.050634 以下 |
-| 通道误差超过 12 的像素比例，单张最高 | 0.102% 以下 |
-| 平均通道误差验收上限 | 0.25 |
-| 误差超过 12 的像素比例验收上限 | 0.25% |
+```sh
+node tools/reference.cjs
+dotnet run --project tests/CoreTests.csproj -- .
+node tools/shader-bindings.cjs --check
+dotnet build --nologo
+godot --path . -- --render-tests
+node tools/render-reference.cjs
+godot --path . --disable-vsync -- --backend-tests
+node tools/verify-consumer.cjs
+godot --path . -- --capture-demo
+```
 
-少量局部像素差异仍存在；未将不同绘制后端描述为像素完全一致。报告：`artifacts/image-comparison.json`，差异图：`artifacts/reference-images/diff-*.png`。
+`verify-consumer.cjs` accepts `GODOT_BIN`; other commands above assume `godot` resolves to the Mono executable.
+Reports are generated under `artifacts/core-tests.json`, `artifacts/image-comparison.json`,
+`artifacts/backend-checks/report.json` and `artifacts/consumer-test.json`.
+Failed GPU comparisons save both images for inspection. The numerical oracle is generated from pinned original
+JavaScript, not from the refactored implementation.
 
-附加渲染断言通过：
+## Not claimed
 
-- 每个姿态有可见角色，画布边角保持透明。
-- 隐藏白目后，虹膜不再泄漏到没有眼部遮罩的区域。
-- 图层反序仍可绘制独立的左右眼遮罩。
-- 共享模型资源的角色实例不共享可变几何。
-- 反复加载模型无报告的渲染错误，清空节点后画布恢复透明。
-
-报告：`artifacts/godot/render-tests.json`。主 demo 已实际启动并检查截图：`artifacts/demo.png`。
-
-## addon 独立性：通过
-
-在临时空白项目中，仅复制 `addons/anime25d` 和 Sample A 转换结果，执行编译、Godot 导入、模型实例化及模拟。
-
-该工程没有 demo、tools、隐式全局 using 或已启用的 editor plugin，编译和运行均成功。报告：`artifacts/consumer-test.json`，详细输出：`artifacts/consumer.log`。
-
-## 尚未验证的范围
-
-- 其他桌面平台和其他 Godot renderer。
-- 大量角色同时显示的性能、打包导出和长时间内存压力。
-- 用户自己的 layered character；当前以原项目两个 sample 为首版验收素材。
-
-这些不影响已确认的首版样例复刻结果，也不应被当作已有兼容性保证。
-
-## 后续修正：桌面全屏幕鼠标跟踪
-
-将角色局部坐标与画布内判断替换为系统全局鼠标轮询，以窗口所在显示器归一化；这是桌面输入适配，不改变核心动画公式。
-
-`--mouse-tests` 在本机原生 Godot 窗口运行通过：测试窗口移至当前鼠标之外，角色也放置在屏幕外，确认跟踪仍然有效且坐标与系统鼠标一致；改变角色平移和缩放不会改变输入；暂停仍冻结模拟。测试没有移动系统鼠标。多显示器的实际硬件布局尚未实测。
-
-本次编译：0 warnings、0 errors。
+No validation yet for other rendering backends/platforms, packaged exports, multi-monitor hardware layouts,
+large simultaneous character counts, sustained memory soak tests, or unrelated user-authored models.
+GPU image parity is tolerance-based; it is not bit-identical floating-point computation.

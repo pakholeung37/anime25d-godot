@@ -22,6 +22,8 @@ public partial class AnimeRigNode : Node2D
     [Export] public bool Playing { get; set; } = true;
     [Export] public bool AutomaticProcessing { get; set; } = true;
     public RigSimulation? Simulation { get; private set; }
+    /// <summary>Device-agnostic, frame-local pose extension point. Subscriptions survive model reloads.</summary>
+    public event Action<Parameters>? PreparingPose;
     public long LastVertexUploadBytes => renderer?.LastVertexUploadBytes ?? 0;
     public DeformationBackend? ActiveBackend => renderer?.Backend;
     private RigRenderer? renderer;
@@ -43,6 +45,7 @@ public partial class AnimeRigNode : Node2D
         ClearModel();
         Model = model;
         Simulation = simulation;
+        simulation.PreparingPose += PreparePose;
         renderer = new RigRenderer();
         AddChild(renderer);
         renderer.Initialize(model, simulation, Backend);
@@ -54,11 +57,7 @@ public partial class AnimeRigNode : Node2D
         if (!AutomaticProcessing || Simulation is null)
             return;
         if (Playing)
-        {
-            if (Simulation.AutomaticMotion.Mouse)
-                DesktopMouseInput.Update(Simulation, GetWindow());
             Simulation.Step(delta);
-        }
         else
             Simulation.UpdateGeometry();
         renderer?.UploadFrame();
@@ -86,8 +85,11 @@ public partial class AnimeRigNode : Node2D
 
     public void SetPreset(string? name) => Simulation?.SetPreset(name, !Playing);
 
+    private void PreparePose(Parameters parameters) => PreparingPose?.Invoke(parameters);
+
     public void ClearModel()
     {
+        if (Simulation is not null) Simulation.PreparingPose -= PreparePose;
         renderer?.Free();
         renderer = null;
         Simulation = null;

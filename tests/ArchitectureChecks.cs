@@ -68,6 +68,20 @@ internal static class ArchitectureChecks
             gpu.UpdateGeometry();
             Require(cpu.Parts.Zip(gpu.Parts).All(pair => pair.First.Alpha < LayerVisibility.RenderThreshold || pair.First.Positions.SequenceEqual(pair.Second.Positions)), "CPU readback evaluator differs after GPU simulation.");
             Reject(() => custom.Step(double.NaN), "Invalid delta accepted.");
+
+            var extended = new RigSimulation(definition, Seeded());
+            extended.AutomaticMotion.DisableAll();
+            extended.SetParameter(Parameter.HeadYaw, 0.2, true);
+            extended.SetPreset("smile", true);
+            void OverridePose(Parameters parameters) => parameters.Set(Parameter.HeadYaw, 0.6);
+            extended.PreparingPose += OverridePose;
+            extended.Step(0.05);
+            double expectedYaw = 0.2 + (0.6 - 0.2) * (1 - Math.Exp(-0.05 * 14));
+            Require(Math.Abs(extended.Frame[Parameter.HeadYaw] - expectedYaw) < 1e-12, "Generic pose hook did not run before smoothing.");
+            Require(extended.Target[Parameter.HeadYaw] == 0.2 && extended.ActivePreset == "smile", "Frame modifier changed persistent targets or expression lock.");
+            extended.PreparingPose -= OverridePose;
+            extended.Step(0.05);
+            Require(extended.Frame[Parameter.HeadYaw] < expectedYaw, "Detached modifier left a persistent override.");
         }
         foreach (var spec in Parameters.Specs)
         {
@@ -81,6 +95,8 @@ internal static class ArchitectureChecks
         Reject(() => RigProfile.Parse("{\"Motion\":{\"SmothingRate\":10}}"), "Misspelled profile setting silently accepted.");
         Reject(() => RigProfile.Parse("{\"Parameters\":{\"HeadYaw\":{\"Default\":2,\"Minimum\":-1,\"Maximum\":1}}}"), "Invalid parameter default accepted.");
         Reject(() => ParameterNames.Parse("999"), "Invalid parameter index accepted.");
+        string runtimeSources = string.Join("\n", Directory.EnumerateFiles(Path.Combine(root, "addons/anime25d"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
+        Require(!System.Text.RegularExpressions.Regex.IsMatch(runtimeSources, @"\b(Mouse|PointerInput|GazeSettings|GazeMotion|DesktopMouseTracking|DesktopMouseInput|MouseTrackingResponse|DisplayServer)\b"), "Runtime depends on mouse input implementation.");
         Console.WriteLine($"Architecture checks passed: {checks} assertions.");
         return checks;
     }

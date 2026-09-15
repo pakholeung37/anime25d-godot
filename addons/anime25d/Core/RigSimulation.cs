@@ -19,7 +19,10 @@ public sealed class RigSimulation
     public double TimeMilliseconds { get; private set; }
     public string? ActivePreset { get; private set; }
     public int BlinkVariant => motions.BlinkVariant;
-    public PointerInput Pointer { get; } = new();
+    /// <summary>Optional frame-local pose modifiers, before built-in motion and smoothing.
+    /// Modify the provided parameters synchronously; do not retain the buffer or re-enter Step.
+    /// Target parameters and the active expression are not changed by these overrides.</summary>
+    public event Action<Parameters>? PreparingPose;
     public bool EvaluateCpuGeometry { get; set; } = true;
     public static IReadOnlyDictionary<string, ExpressionPose> Presets => ExpressionPose.Defaults;
 
@@ -85,7 +88,8 @@ public sealed class RigSimulation
         double deltaSeconds = Math.Min(Profile.Motion.MaximumDeltaSeconds, delta);
         TimeMilliseconds += deltaSeconds * 1000;
         targetFrame.CopyFrom(Target);
-        motions.Compose(targetFrame, AutomaticMotion, Pointer, ActivePreset is not null, TimeMilliseconds, deltaSeconds);
+        PreparingPose?.Invoke(targetFrame);
+        motions.Compose(targetFrame, AutomaticMotion, ActivePreset is not null, TimeMilliseconds, deltaSeconds);
         double smoothing = 1 - Math.Exp(-deltaSeconds * Profile.Motion.SmoothingRate);
         for (int index = 0; index < Current.Catalog.Count; index++)
         {

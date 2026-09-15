@@ -22,12 +22,18 @@ actor.SetPreset("smile");
 - `SetParameter` clamps to the loaded profile's ranges and smooths toward the target; `immediate: true` bypasses smoothing.
 - Readable enum names are preferred. String setters also accept original names such as `angleX`.
 - `SetPreset(null)` unlocks automatic blink/talk without resetting parameter values.
-- `Simulation.AutomaticMotion` controls idle, blink, random motion, talk, mouse and hair physics.
+- `Simulation.AutomaticMotion` controls idle, blink, random motion, talk and hair physics.
 - `Simulation.SetBlinkEnabled(false)` also cancels the current blink and iris bounce.
-- Desktop mouse tracking polls global screen coordinates, independent of actor transforms and window boundaries.
-  With manual timing, supply `Simulation.Pointer.Horizontal`, `Vertical` and `IsAvailable` yourself.
+- `PreparingPose` on the node (or simulation) provides frame-local parameter overrides before built-in motion and smoothing.
+  It runs during automatic playback and manual `Advance`, but not paused processing or `RefreshPose`.
+  Modify the supplied buffer synchronously; do not retain it or re-enter playback. Overrides do not change persistent targets
+  or expression locks. Node subscriptions survive model reloads; unsubscribe when the external controller is removed.
 - Edit per-instance layer visibility, opacity, depth and order through `Simulation.Parts`; call `RefreshPose()` when driving manually.
 - `ClearModel()` releases instance rendering resources, not shared artwork textures.
+
+Desktop mouse tracking is implemented only in the repository's `demo/Input`, using `PreparingPose`.
+The runtime has no input sampling, pointer state or mouse settings. Head/gaze pose parameters remain device-independent.
+Former `Motion.Gaze` profile settings belong to the demo controller's gain properties, not runtime profiles.
 
 ## Profiles
 

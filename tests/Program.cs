@@ -1,5 +1,6 @@
 using System.Text.Json;
 using Anime25D.Core;
+using Anime25D.Examples;
 
 var root = Path.GetFullPath(args.Length > 0 ? args[0] : ".");
 using var document = JsonDocument.Parse(File.ReadAllText(Path.Combine(root, "artifacts/reference.json")));
@@ -33,7 +34,12 @@ foreach (var model in reference.GetProperty("models").EnumerateArray())
         if (!test.TryGetProperty("animated", out var animated) || !animated.GetBoolean()) sim.AutomaticMotion.DisableAll();
         if (test.TryGetProperty("physics", out var physics)) sim.AutomaticMotion.Physics = physics.GetBoolean();
         if (test.TryGetProperty("preset", out var preset)) sim.SetPreset(preset.GetString());
-        if (test.TryGetProperty("mouse", out var mouse)) { sim.AutomaticMotion.Mouse = true; sim.Pointer.IsAvailable = true; sim.Pointer.Horizontal = mouse.GetProperty("x").GetDouble(); sim.Pointer.Vertical = mouse.GetProperty("y").GetDouble(); }
+        if (test.TryGetProperty("mouse", out var mouse))
+        {
+            var response = new MouseTrackingResponse();
+            double horizontal = mouse.GetProperty("x").GetDouble(), vertical = mouse.GetProperty("y").GetDouble();
+            sim.PreparingPose += parameters => response.Apply(parameters, horizontal, vertical);
+        }
         var byName = sim.Parts.ToDictionary(p => p.Definition.Name);
         int previous = 0; double fps = test.TryGetProperty("fps", out var fp) ? fp.GetDouble() : 60;
         foreach (var expected in test.GetProperty("checkpoints").EnumerateArray())

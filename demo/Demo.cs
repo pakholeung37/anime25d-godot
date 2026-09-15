@@ -1,10 +1,12 @@
 using Anime25D;
 using Anime25D.Core;
+using Anime25D.Examples;
 using Godot;
 
 public partial class Demo : Control
 {
     private AnimeRigNode actor = null!;
+    private DesktopMouseTracking mouseTracking = null!;
     private AnimeRigNode? second;
     private Panel stage = null!;
     private Label info = null!;
@@ -92,6 +94,8 @@ public partial class Demo : Control
         left.AddChild(stage);
         actor = new AnimeRigNode { Name = "Character" };
         stage.AddChild(actor);
+        mouseTracking = new DesktopMouseTracking { Enabled = false };
+        actor.AddChild(mouseTracking);
         stage.Resized += Fit;
         info = Text("Loading…", 13);
         left.AddChild(info);
@@ -133,7 +137,7 @@ public partial class Demo : Control
                         sim.AutomaticMotion.Physics = value;
                         break;
                     case "Mouse":
-                        sim.AutomaticMotion.Mouse = value;
+                        mouseTracking.Enabled = value;
                         break;
                 }
             };
@@ -242,6 +246,7 @@ public partial class Demo : Control
     private void LoadSample(string name)
     {
         sample = name;
+        mouseTracking.Enabled = false;
         actor.LoadModel(GD.Load<AnimeRigModel>($"res://demo/models/{name}/model.tres"));
         BuildParameters();
         foreach (var (key, toggle) in toggles)

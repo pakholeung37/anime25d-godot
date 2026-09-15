@@ -4,7 +4,7 @@ A Godot 4.7 C# addon that brings layered 2D characters to life. A faithful runti
 
 ![Nine seconds of idle, blinking, random motion, talking, and physics in Godot](docs/media/runtime.gif)
 
-Features mesh-based head turns, breathing, blinking, mouth animation, hair physics, expression presets, and desktop mouse tracking. Characters are reusable nodes with independent animation state.
+Features mesh-based head turns, breathing, blinking, mouth animation, hair physics, and expression presets. Characters are reusable nodes with independent animation state; the demo adds desktop mouse tracking.
 
 PSD conversion runs separately from the runtime. Includes two sample models and an interactive demo.
 
