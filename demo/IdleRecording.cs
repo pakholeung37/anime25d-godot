@@ -1,6 +1,6 @@
 using System.Security.Cryptography;
 using System.Text.Json;
-using Anime25D;
+using Anime25D.Sample;
 using Godot;
 
 // Capture only after the requested simulation frame has actually reached the GPU.

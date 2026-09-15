@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="AnimeRigProfile" load_steps=2 format=3]
 
-[ext_resource type="Script" path="res://addons/anime25d/AnimeRigProfile.cs" id="1"]
+[ext_resource type="Script" path="res://demo/SampleRig/AnimeRigProfile.cs" id="1"]
 
 [resource]
 script = ExtResource("1")

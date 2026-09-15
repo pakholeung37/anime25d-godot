@@ -4,7 +4,6 @@ const root=path.resolve(__dirname,'..'),target=fs.mkdtempSync(path.join(os.tmpdi
 const godot=process.env.GODOT_BIN||'/Applications/Godot_mono.app/Contents/MacOS/Godot';
 fs.cpSync(path.join(root,'tests/consumer'),target,{recursive:true});
 fs.cpSync(path.join(root,'addons/anime25d'),path.join(target,'addons/anime25d'),{recursive:true});
-fs.cpSync(path.join(root,'demo/models/sample-a'),path.join(target,'models/sample-a'),{recursive:true});
 function run(command,args){
   const result=spawnSync(command,args,{cwd:target,encoding:'utf8',timeout:120000});
   fs.appendFileSync(path.join(root,'artifacts/consumer.log'),(result.stdout||'')+(result.stderr||''));
@@ -13,7 +12,7 @@ function run(command,args){
 try{
   run('dotnet',['build','--nologo']);
   run(godot,['--headless','--editor','--path',target,'--import']);
-  run(godot,['--headless','--path',target]);
+  run(godot,['--path',target]);
   fs.writeFileSync(path.join(root,'artifacts/consumer-test.json'),JSON.stringify({status:'passed',project:target},null,2));
   console.log('Independent addon consumer passed: '+target);
 }catch(error){console.error(error);process.exitCode=1;}

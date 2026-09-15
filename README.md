@@ -1,11 +1,19 @@
 # Anime25D
 
-A Godot 4.7 C# addon that brings layered 2D characters to life. A faithful runtime port of [Anime2.5DRig](https://github.com/852wa/Anime2.5DRig), preserving its original parameters, motion formulas, and default animations.
+An extensible Godot 4.7 C# 2D model runtime: immutable meshes and layers, model instances,
+code-authored motions and expressions, custom deformation, CPU/GPU rendering and explicit masks.
 
-![Nine seconds of idle, blinking, random motion, talking, and physics in Godot](docs/media/runtime.gif)
+![The Anime2.5D sample in Godot](docs/media/runtime.gif)
 
-Features mesh-based head turns, breathing, blinking, mouth animation, hair physics, and expression presets. Characters are reusable nodes with independent animation state; the demo adds desktop mouse tracking.
+The [addon](addons/anime25d/README.md) owns the complete model execution and rendering lifecycle.
+Applications can display a simple model using built-in layer transforms or supply custom CPU/GPU
+formulas while reusing the same renderer. Parameters and animation assets are defined in code.
 
-PSD conversion runs separately from the runtime. Includes two sample models and an interactive demo.
+The [sample](demo/SampleRig/README.md) provides Anime2.5DRig character rules and artwork integration.
+Try **Nod**, **Loop sway**, expressions and mouse tracking together. PSD/model conversion remains an
+offline sample tool.
+
+See the [implementation and validation report](docs/MODEL_RUNTIME_IMPLEMENTATION.md) and
+[design plan](docs/MODEL_RUNTIME_REFACTOR_PLAN.md).
 
 Code is [MIT licensed](addons/anime25d/LICENSE). Sample artwork belongs to its original authors.

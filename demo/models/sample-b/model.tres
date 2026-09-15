@@ -1,6 +1,6 @@
 [gd_resource type="Resource" script_class="AnimeRigModel" load_steps=19 format=3]
 
-[ext_resource type="Script" path="res://addons/anime25d/AnimeRigModel.cs" id="1"]
+[ext_resource type="Script" path="res://demo/SampleRig/AnimeRigModel.cs" id="1"]
 [ext_resource type="Texture2D" path="00.png" id="t0"]
 [ext_resource type="Texture2D" path="01.png" id="t1"]
 [ext_resource type="Texture2D" path="02.png" id="t2"]

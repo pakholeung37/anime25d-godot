@@ -1,4 +1,5 @@
 using System;
+using Anime25D.Sample;
 using Anime25D.Core;
 using Godot;
 
@@ -38,17 +39,17 @@ public partial class DesktopMouseTracking : Node
         var target = character ?? GetParent() as AnimeRigNode;
         if (target is null || !GodotObject.IsInstanceValid(target)) return;
         boundCharacter = target;
-        target.PreparingPose += Apply;
+        target.FinalizingPose += Apply;
     }
 
     private void Unbind()
     {
         if (boundCharacter is not null && GodotObject.IsInstanceValid(boundCharacter))
-            boundCharacter.PreparingPose -= Apply;
+            boundCharacter.FinalizingPose -= Apply;
         boundCharacter = null;
     }
 
-    private void Apply(Parameters parameters)
+    private void Apply(ParameterSet parameters)
     {
         if (!Enabled || boundCharacter is null || !GodotObject.IsInstanceValid(boundCharacter) || !boundCharacter.IsInsideTree()) return;
         int screen = boundCharacter.GetWindow().CurrentScreen;

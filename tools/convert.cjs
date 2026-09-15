@@ -50,7 +50,7 @@ function convert(file, output) {
   const manifest=require('./rig-schema.cjs').toRuntime({format:'anime25d-rig',version:1,name:path.basename(file),...rig});
   fs.writeFileSync(path.join(output,'model.rig.json'),JSON.stringify(manifest,null,2)+'\n');
   let resource='[gd_resource type="Resource" script_class="AnimeRigModel" load_steps='+ (textures.length+2)+' format=3]\n\n';
-  resource+='[ext_resource type="Script" path="res://addons/anime25d/AnimeRigModel.cs" id="1"]\n';
+  resource+='[ext_resource type="Script" path="res://demo/SampleRig/AnimeRigModel.cs" id="1"]\n';
   textures.forEach((name,i)=>resource+='[ext_resource type="Texture2D" path="'+name+'" id="t'+i+'"]\n');
   resource+='\n[resource]\nscript = ExtResource("1")\nManifest = '+JSON.stringify(JSON.stringify(manifest))+'\n';
   resource+='Textures = Array[Texture2D](['+textures.map((_,i)=>'ExtResource("t'+i+'")').join(', ')+'])\n';

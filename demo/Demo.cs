@@ -1,5 +1,5 @@
-using Anime25D;
-using Anime25D.Core;
+using Anime25D.Sample;
+using Anime25D.Sample.Core;
 using Anime25D.Examples;
 using Godot;
 
@@ -103,8 +103,11 @@ public partial class Demo : Control
         controls.AddThemeConstantOverride("h_separation", 6);
         left.AddChild(controls);
         controls.AddChild(Button("Pause / Resume", () => actor.Playing = !actor.Playing));
-        controls.AddChild(Button("Reset", () => { actor.Simulation?.ResetParameters(); SyncSliders(); }));
+        controls.AddChild(Button("Reset", () => { actor.Simulation?.ResetParameters(); actor.Animation?.StopMotion(0); actor.Animation?.ClearExpression(0); SyncSliders(); }));
         controls.AddChild(Button("Two instances", ToggleSecond));
+        controls.AddChild(Button("Nod", () => actor.Animation?.PlayMotion("nod")));
+        controls.AddChild(Button("Loop sway", () => actor.Animation?.PlayMotion("sway")));
+        controls.AddChild(Button("Stop motion", () => actor.Animation?.StopMotion()));
         controls.AddChild(Button("Background", () => stage.AddThemeStyleboxOverride("panel", Box(stage.GetThemeStylebox("panel") is StyleBoxFlat b && b.BgColor.R < 0.2 ? new Color(0.78f, 0.80f, 0.82f) : new Color(0.10f, 0.125f, 0.16f)))));
         var automatic = new HFlowContainer();
         left.AddChild(automatic);
@@ -147,16 +150,15 @@ public partial class Demo : Control
         sidebar.AddChild(Text("EXPRESSION", 12));
         var expressions = new HFlowContainer();
         sidebar.AddChild(expressions);
-        foreach (var name in RigSimulation.Presets.Keys)
+        foreach (var name in SampleReferenceAdapter.Presets.Keys)
             expressions.AddChild(Button(name, () =>
             {
-                if (actor.Simulation?.ActivePreset == name)
+                if (actor.Animation?.Expression?.Name == name)
                 {
-                    actor.SetPreset("neutral");
-                    actor.SetPreset(null);
+                    actor.Animation?.ClearExpression();
                 }
                 else
-                    actor.SetPreset(name);
+                    actor.Animation?.SetExpression(name);
                 SyncSliders();
             }));
         var tabs = new TabContainer { SizeFlagsVertical = SizeFlags.ExpandFill };
@@ -266,7 +268,7 @@ public partial class Demo : Control
         {
             second = new AnimeRigNode { Name = "IndependentCharacter", Model = actor.Model };
             stage.AddChild(second);
-            second.SetPreset("winkR");
+            second.Animation?.SetExpression("winkR");
         }
         Fit();
     }

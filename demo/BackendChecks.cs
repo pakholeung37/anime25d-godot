@@ -1,8 +1,8 @@
 using System.Diagnostics;
 using System.Text.Json;
 using System.Text.Json.Nodes;
-using Anime25D;
-using Anime25D.Core;
+using Anime25D.Sample;
+using Anime25D.Sample.Core;
 using Anime25D.Examples;
 using Godot;
 
@@ -137,6 +137,26 @@ public partial class BackendChecks : Node
                 await Compare("animation-" + frame);
         }
 
+        // Code-authored motion + independent expression use the same CPU/GPU output adapter.
+        Reset();
+        foreach (var actor in new[] { cpu.Actor, gpu.Actor })
+        {
+            actor.Animation!.PlayMotion("sway");
+            actor.Animation.SetExpression("smile");
+        }
+        for (int frame = 1; frame <= 240; frame++)
+        {
+            if (frame == 100)
+                foreach (var actor in new[] { cpu.Actor, gpu.Actor }) actor.Animation!.PlayMotion("nod");
+            if (frame == 140)
+                foreach (var actor in new[] { cpu.Actor, gpu.Actor }) actor.Animation!.SetExpression("surprise");
+            cpu.Actor.Advance(1.0 / 60);
+            gpu.Actor.Advance(1.0 / 60);
+            if (frame % 20 == 0) await Compare("code-animation-" + frame);
+        }
+        if (cpu.Actor.Animation!.Motion is not null || cpu.Actor.Animation.Expression?.Name != "surprise")
+            throw new Exception("One-shot completion released independent expression or did not finish.");
+
         using var profile = new AnimeRigProfile { SettingsJson = """
             {"Motion":{"Breath":{"PeriodSeconds":2.8},"SmoothingRate":9},
              "Physics":{"StiffHair":{"Stiffness":60,"Damping":8,"DisplacementScale":1.8}},
@@ -232,13 +252,15 @@ public partial class BackendChecks : Node
         gpu.Actor.AddChild(tracker);
         double sampledYaw = double.NaN, sampledPitch = double.NaN;
         int poseCallbacks = 0;
-        void ObservePose(Parameters parameters)
+        void ObservePose(Anime25D.Core.ParameterSet parameters)
         {
-            sampledYaw = parameters[Parameter.HeadYaw];
-            sampledPitch = parameters[Parameter.HeadPitch];
+            sampledYaw = parameters[nameof(Parameter.HeadYaw)];
+            sampledPitch = parameters[nameof(Parameter.HeadPitch)];
             poseCallbacks++;
         }
-        gpu.Actor.PreparingPose += ObservePose;
+        gpu.Actor.FinalizingPose += ObservePose;
+        gpu.Actor.Animation!.PlayMotion("nod");
+        gpu.Actor.Animation.SetExpression("smile");
         gpu.Actor._Process(1.0 / 60);
         int screen = GetWindow().CurrentScreen;
         Vector2I pointer = DisplayServer.MouseGetPosition();
@@ -268,7 +290,7 @@ public partial class BackendChecks : Node
         var previousSimulation = gpu.Actor.Simulation;
         gpu.Actor.LoadModel(model, Seeded());
         int callbacksAfterReload = poseCallbacks;
-        previousSimulation.Step(0);
+        if (!previousSimulation.Instance.IsDisposed) throw new Exception("Previous model instance was not disposed.");
         if (poseCallbacks != callbacksAfterReload) throw new Exception("Previous simulation retained node pose subscriptions.");
         tracker.Enabled = true;
         gpu.Actor.Advance(0);
@@ -279,17 +301,17 @@ public partial class BackendChecks : Node
         gpu.Actor.Advance(0);
         if (sampledYaw != 0.25) throw new Exception("Retargeted extension remained attached to its previous character.");
         double retargetedYaw = double.NaN;
-        void ObserveRetargeted(Parameters parameters) => retargetedYaw = parameters[Parameter.HeadYaw];
-        cpu.Actor.PreparingPose += ObserveRetargeted;
+        void ObserveRetargeted(Anime25D.Core.ParameterSet parameters) => retargetedYaw = parameters[nameof(Parameter.HeadYaw)];
+        cpu.Actor.FinalizingPose += ObserveRetargeted;
         cpu.Actor.Advance(0);
         if (!double.IsFinite(retargetedYaw) || Math.Abs(retargetedYaw - expectedYaw) > 0.05)
             throw new Exception("Extension did not bind its explicit character.");
-        cpu.Actor.PreparingPose -= ObserveRetargeted;
+        cpu.Actor.FinalizingPose -= ObserveRetargeted;
         tracker.Character = null;
         tracker.Free();
         gpu.Actor.Advance(0);
         if (sampledYaw != 0.25) throw new Exception("Removed extension still overrides the pose.");
-        gpu.Actor.PreparingPose -= ObservePose;
+        gpu.Actor.FinalizingPose -= ObservePose;
         GD.Print(name + ": optional mouse extension lifecycle passed.");
 
         Reset();

@@ -1,5 +1,5 @@
 using System.Text.Json;
-using Anime25D.Core;
+using Anime25D.Sample.Core;
 using Anime25D.Examples;
 
 var root = Path.GetFullPath(args.Length > 0 ? args[0] : ".");
@@ -28,7 +28,7 @@ foreach (var model in reference.GetProperty("models").EnumerateArray())
     var definition = RigDefinition.Parse(model.GetProperty("rig").GetRawText());
     foreach (var test in model.GetProperty("cases").EnumerateArray())
     {
-        cases++; var sim = new RigSimulation(definition, Seeded());
+        cases++; var sim = new SampleReferenceAdapter(definition, Seeded());
         var label = model.GetProperty("name").GetString() + "/" + test.GetProperty("name").GetString();
         foreach (var p in test.GetProperty("pose").EnumerateObject()) sim.SetParameter(ParameterNames.Parse(p.Name), p.Value.GetDouble(), true);
         if (!test.TryGetProperty("animated", out var animated) || !animated.GetBoolean()) sim.AutomaticMotion.DisableAll();
@@ -76,11 +76,11 @@ foreach (var model in reference.GetProperty("models").EnumerateArray())
         }
     }
     // Resource sharing must not share mutable positions, parameters or springs.
-    var first = new RigSimulation(definition, Seeded()); var second = new RigSimulation(definition, Seeded());
+    var first = new SampleReferenceAdapter(definition, Seeded()); var second = new SampleReferenceAdapter(definition, Seeded());
     first.SetParameter(Parameter.HeadYaw, 1, true); first.Step(1.0 / 60);
     Require(second.Target[Parameter.HeadYaw] == 0 && second.TimeMilliseconds == 0, "Instance state leaked.");
     Require(!ReferenceEquals(first.Parts[0].Positions, second.Parts[0].Positions), "Shared mutable vertex buffer.");
-    var stable = new RigSimulation(definition, Seeded());
+    var stable = new SampleReferenceAdapter(definition, Seeded());
     for (int i = 0; i < 300; i++) stable.Step(i % 2 == 0 ? 0.5 : 1.0 / 144);
     Require(stable.Parts.All(p => p.Positions.All(float.IsFinite)), "Variable frame rate produced non-finite vertices.");
 }
@@ -91,6 +91,8 @@ foreach (var fps in new[] { 10, 30, 60, 144 })
     Near(spring.Position, 20, 0.01, "spring convergence");
 }
 int architectureChecks = ArchitectureChecks.Run(root);
-var report = new { cases, comparisons, maxPositionError, maxParameterError, sawLongBlink, architectureChecks, status = "passed" };
+int animationChecks = AnimationChecks.Run();
+int modelChecks = ModelChecks.Run();
+var report = new { cases, comparisons, maxPositionError, maxParameterError, sawLongBlink, architectureChecks, animationChecks, modelChecks, status = "passed" };
 File.WriteAllText(Path.Combine(root, "artifacts/core-tests.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
 Console.WriteLine(JsonSerializer.Serialize(report));

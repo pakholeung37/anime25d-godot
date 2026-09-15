@@ -1,6 +1,6 @@
 using System.Text.Json;
-using Anime25D;
-using Anime25D.Core;
+using Anime25D.Sample;
+using Anime25D.Sample.Core;
 using Godot;
 
 // Executed in a real GPU renderer, separately from the browser-free numerical suite.
