@@ -1,4 +1,4 @@
-using Anime25D.Core;
+using Anime25D.Runtime;
 
 internal static class AnimationChecks
 {

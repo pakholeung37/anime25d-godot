@@ -5,16 +5,16 @@ using static System.Math;
 
 namespace Anime25D.Sample.Core;
 
-public readonly record struct DeformationInput(RigAnchors Anchors, FrameParameters Pose,
-    DeformationSettings Settings, double ChestDisplacement, bool HairPhysicsEnabled);
+public readonly record struct DeformationInput(RigAnchors Anchors, SamplePose Pose,
+    DeformationSettings Settings, double ChestDisplacement, bool HairPhysicsEnabled, Anime25D.Runtime.ModelFrame Frame, int SpringOffset, double Depth);
 
 /// <summary>Double-precision CPU oracle and fallback. GPU parity tests cover the matching shader stages.</summary>
 public static class RigDeformer
 {
-    public static void Deform(PartState part, in DeformationInput input, Span<float> output)
+    public static void Deform(SamplePart part, in DeformationInput input, ReadOnlySpan<float> inputPositions, Span<float> output)
     {
         var evaluator = new VertexEvaluator(part, input);
-        var rest = part.Geometry.RestPositions;
+        var rest = inputPositions;
         for (int index = 0; index < rest.Length; index += 2)
         {
             double x = rest[index];
@@ -32,13 +32,16 @@ public static class RigDeformer
 
     private readonly struct VertexEvaluator
     {
-        private readonly PartState part;
+        private readonly SamplePart part;
         private readonly double chestDisplacement;
         private readonly bool hairPhysicsEnabled;
         private readonly DeformationSettings settings;
         private readonly PartDefinition definition;
         private readonly RigAnchors anchors;
-        private readonly FrameParameters frame;
+        private readonly SamplePose frame;
+        private readonly Anime25D.Runtime.ModelFrame published;
+        private readonly int springOffset;
+        private readonly double depth;
         private readonly Anchor neckPivot, bodyPivot;
         private readonly Anchor? eye;
         private readonly PartRole role;
@@ -48,7 +51,7 @@ public static class RigDeformer
         private readonly double chestX, chestY, chestRadiusX, chestRadiusY;
         private readonly int strandCount;
 
-        public VertexEvaluator(PartState part, in DeformationInput input)
+        public VertexEvaluator(SamplePart part, in DeformationInput input)
         {
             this.part = part;
             chestDisplacement = input.ChestDisplacement;
@@ -56,7 +59,9 @@ public static class RigDeformer
             settings = input.Settings;
             definition = part.Definition;
             anchors = input.Anchors;
-            frame = input.Pose;
+            frame = input.Pose; published = input.Frame;
+            depth = input.Depth;
+            springOffset = input.SpringOffset;
             neckPivot = anchors.NeckPivot;
             bodyPivot = anchors.BodyPivot;
             faceScale = anchors.FaceScale;
@@ -79,7 +84,7 @@ public static class RigDeformer
             chestY = anchors.NeckBottomY + (anchors.Face.MaximumY - anchors.Face.MinimumY) * settings.ChestCenterFaceRatio;
             chestRadiusX = Max(1, (anchors.Face.MaximumX - anchors.Face.MinimumX) * settings.ChestWidthFaceRatio);
             chestRadiusY = Max(1, (anchors.Face.MaximumY - anchors.Face.MinimumY) * settings.ChestHeightFaceRatio);
-            strandCount = part.Springs.Length;
+            strandCount = part.Definition.Strands?.Length ?? 0;
         }
 
         public void ApplyFeatures(ref double x, ref double y)
@@ -153,7 +158,7 @@ public static class RigDeformer
                 double rx = x - neckPivot.CenterX, ry = y - neckPivot.CenterY, rx2 = rx * headCosine - ry * headSine, ry2 = rx * headSine + ry * headCosine;
                 x += (rx2 - rx) * headWeight;
                 y += (ry2 - ry) * headWeight;
-                double depth = part.Depth;
+
                 x += headWeight * faceScale * (frame[HeadYaw] * (settings.HeadYawPixels + settings.HeadYawDepthPixels * (depth - 1)) + frame[HeadYaw] * (neckPivot.CenterY - y) * settings.HeadYawShear);
                 y += headWeight * faceScale * (-frame[HeadPitch] * (settings.HeadPitchPixels + settings.HeadPitchDepthPixels * (depth - 1)) - frame[HeadPitch] * (depth - 1) * (y - anchors.Face.CenterY) * settings.HeadPitchShear);
             }
@@ -196,8 +201,8 @@ public static class RigDeformer
                     double w = part.Geometry.StrandWeights[vertexIndex * strandCount + s];
                     if (w < 0.001)
                         continue;
-                    var strand = part.Springs[s];
-                    dx += w * (strand.Stiff.Displacement * (1 - softnessBlend) + strand.Soft.Displacement * softnessBlend);
+                    var springs = published.Channels["spring-displacements"];
+                    dx += w * (springs[springOffset + s * 2] * (1 - softnessBlend) + springs[springOffset + s * 2 + 1] * softnessBlend);
                 }
                 x += dx * amplitude;
                 y += Abs(dx) * amplitude * settings.HairVerticalSway;

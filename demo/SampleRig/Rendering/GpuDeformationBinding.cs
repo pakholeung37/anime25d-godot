@@ -11,32 +11,33 @@ internal sealed class GpuDeformationBinding : IDisposable
 {
     private static readonly StringName SpringUniform = new("spring_displacements");
     private static readonly StringName DepthUniform = new("layer_depth");
-    private readonly PartState part;
+    private readonly SamplePart part;
+    private readonly int layer, springOffset;
     private readonly ShaderMaterial[] materials;
     private readonly Vector2[] displacements = new Vector2[6];
-    private readonly ImageTexture weights;
+    private readonly Anime25D.FloatTexture weights;
 
-    public GpuDeformationBinding(PartState part, SampleBehavior simulation, GpuPoseBuffer pose, params ShaderMaterial[] materials)
+    public GpuDeformationBinding(SamplePart part, SampleWarp simulation, Anime25D.FrameTextureBinding pose, int layer, params ShaderMaterial[] materials)
     {
-        this.part = part;
+        this.part = part; this.layer = layer; springOffset = simulation.SpringOffset(layer);
         this.materials = materials;
         weights = CreateWeights(part);
         foreach (var material in materials)
             BindStatic(material, simulation, pose);
     }
 
-    private void BindStatic(ShaderMaterial material, SampleBehavior simulation, GpuPoseBuffer pose)
+    private void BindStatic(ShaderMaterial material, SampleWarp simulation, Anime25D.FrameTextureBinding pose)
     {
         var definition = part.Definition;
-        var anchors = simulation.Definition.Anchors;
+        var anchors = simulation.Rig.Anchors;
         material.SetShaderParameter("gpu_deformation", true);
         material.SetShaderParameter("pose_texture", pose.Texture);
-        material.SetShaderParameter("weight_texture", weights);
+        material.SetShaderParameter("weight_texture", weights.Texture);
         material.SetShaderParameter("part_role", (int)definition.Role);
         material.SetShaderParameter("part_group", (int)definition.Group);
         material.SetShaderParameter("part_side", (int)definition.Side);
         material.SetShaderParameter("fade_mode", (int)definition.Fade);
-        material.SetShaderParameter("strand_count", part.Springs.Length);
+        material.SetShaderParameter("strand_count", (part.Definition.Strands?.Length ?? 0));
         material.SetShaderParameter("face_scale", anchors.FaceScale);
         material.SetShaderParameter("part_rectangle", new Vector4(definition.X, definition.Y, definition.Width, definition.Height));
         material.SetShaderParameter("face_rectangle", Rectangle(anchors.Face));
@@ -62,14 +63,14 @@ internal sealed class GpuDeformationBinding : IDisposable
         }
     }
 
-    public void Update()
+    public void Update(Anime25D.Runtime.ModelFrame frame)
     {
-        for (int index = 0; index < part.Springs.Length; index++)
-            displacements[index] = new Vector2((float)part.Springs[index].Stiff.Displacement, (float)part.Springs[index].Soft.Displacement);
+        for (int index = 0; index < (part.Definition.Strands?.Length ?? 0); index++)
+            displacements[index] = new Vector2((float)frame.Channels["spring-displacements"][springOffset + index * 2], (float)frame.Channels["spring-displacements"][springOffset + index * 2 + 1]);
         foreach (var material in materials)
         {
-            material.SetShaderParameter(DepthUniform, part.Depth);
-            if (part.Springs.Length > 0)
+            material.SetShaderParameter(DepthUniform, frame.Pose[SampleWarp.DepthParameter(layer)]);
+            if ((part.Definition.Strands?.Length ?? 0) > 0)
                 material.SetShaderParameter(SpringUniform, displacements);
         }
     }
@@ -77,7 +78,7 @@ internal sealed class GpuDeformationBinding : IDisposable
     private static Vector4 Rectangle(Anchor anchor) => new((float)anchor.MinimumX, (float)anchor.MinimumY, (float)anchor.MaximumX, (float)anchor.MaximumY);
     private static Vector2 Center(Anchor anchor) => new((float)anchor.CenterX, (float)anchor.CenterY);
 
-    private static ImageTexture CreateWeights(PartState part)
+    private static Anime25D.FloatTexture CreateWeights(SamplePart part)
     {
         const int width = 256, texelsPerVertex = 3;
         int height = Math.Max(1, (part.Geometry.VertexCount * texelsPerVertex + width - 1) / width);
@@ -85,16 +86,15 @@ internal sealed class GpuDeformationBinding : IDisposable
         for (int vertex = 0; vertex < part.Geometry.VertexCount; vertex++)
         {
             int offset = vertex * texelsPerVertex * 4;
-            for (int strand = 0; strand < part.Springs.Length; strand++)
-                values[offset + strand] = part.Geometry.StrandWeights[vertex * part.Springs.Length + strand];
+            for (int strand = 0; strand < (part.Definition.Strands?.Length ?? 0); strand++)
+                values[offset + strand] = part.Geometry.StrandWeights[vertex * (part.Definition.Strands?.Length ?? 0) + strand];
             if (part.Geometry.StrandPositions.Length > 0)
                 values[offset + 6] = part.Geometry.StrandPositions[vertex];
             if (part.Geometry.FringeWeights.Length > 0)
                 for (int zone = 0; zone < 3; zone++)
                     values[offset + 8 + zone] = part.Geometry.FringeWeights[vertex * 3 + zone];
         }
-        using var image = Image.CreateFromData(width, height, false, Image.Format.Rgbaf, MemoryMarshal.AsBytes(values.AsSpan()).ToArray());
-        return ImageTexture.CreateFromImage(image);
+        var texture = new Anime25D.FloatTexture(width, height); texture.Upload(values); return texture;
     }
 
     public void Dispose() => weights.Dispose();

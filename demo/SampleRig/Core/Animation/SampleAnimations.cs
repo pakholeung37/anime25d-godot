@@ -1,6 +1,6 @@
 using System.Collections.Generic;
 using System.Linq;
-using Anime25D.Core;
+using Anime25D.Runtime;
 
 namespace Anime25D.Sample.Core;
 

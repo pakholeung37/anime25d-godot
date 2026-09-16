@@ -18,13 +18,4 @@ public sealed record ExpressionPose(double LeftEyeOpenness, double RightEyeOpenn
         ["winkR"] = new(1, 0, 0.2, 0.4, 0.7, 1)
     };
 
-    public void Apply(SampleBehavior simulation, bool immediate)
-    {
-        simulation.SetParameter(Parameter.LeftEyeOpenness, LeftEyeOpenness, immediate);
-        simulation.SetParameter(Parameter.RightEyeOpenness, RightEyeOpenness, immediate);
-        simulation.SetParameter(Parameter.EyebrowHeight, EyebrowHeight, immediate);
-        simulation.SetParameter(Parameter.MouthOpenness, MouthOpenness, immediate);
-        simulation.SetParameter(Parameter.MouthShape, MouthShape, immediate);
-        simulation.SetParameter(Parameter.IrisScale, IrisScale, immediate);
-    }
 }

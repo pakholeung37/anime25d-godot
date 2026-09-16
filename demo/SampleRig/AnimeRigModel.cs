@@ -8,7 +8,7 @@ namespace Anime25D.Sample;
 public partial class AnimeRigModel : Resource
 {
     /// <summary>Optional code-authored animation assets; no motion file loading.</summary>
-    public Anime25D.Core.AnimationModel? Animations { get; set; }
+    public Anime25D.Runtime.AnimationModel? Animations { get; set; }
     [Export(PropertyHint.MultilineText)] public string Manifest { get; set; } = "";
     [Export] public Godot.Collections.Array<Texture2D> Textures { get; set; } = [];
     [Export]

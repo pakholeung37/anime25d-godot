@@ -1,4 +1,4 @@
-using Anime25D.Core;
+using Anime25D.Runtime;
 using System.Numerics;
 
 internal static class ModelChecks
@@ -14,7 +14,7 @@ internal static class ModelChecks
         var mesh = new MeshDefinition(raw, new float[6], new[] { 0, 1, 2 }); raw[0] = 99;
         Require(mesh.RestPositions[0] == 0, "Geometry aliases authoring arrays.");
         var def = new ModelDefinition(animation, 64, 64, new[] { new LayerDefinition("panel", mesh) },
-            behavior: d => new BasicModelBehavior(d, new[] { new LayerParameterBinding("shift", "panel", LayerProperty.TranslationX) }));
+            plan: new ModelPlan([new("bindings", ModelStage.Layers, d => new LayerBindingComponent(d, new[] { new LayerParameterBinding("shift", "panel", LayerProperty.TranslationX) }))]));
         using var first = new ModelInstance(def); using var second = new ModelInstance(def);
         first.Refresh(); second.Refresh();
         Require(first.Frame.Layers[0].Visible && first.Frame.Layers[0].Positions[0] == 0, "Default geometry missing.");
@@ -29,7 +29,7 @@ internal static class ModelChecks
         first.Layers[0].Visible = false; first.Refresh(); Require(!first.Frame.Layers[0].Visible, "Visibility override ignored.");
         first.Layers[0].DrawOrder = int.MaxValue; first.Refresh(); Require(first.Frame.Layers[0].DrawOrder == int.MaxValue, "Order was silently clamped.");
         var tracker = new TrackingBehavior();
-        using var tracked = new ModelInstance(new(animation, 64, 64, def.Layers, behavior: _ => tracker));
+        using var tracked = new ModelInstance(new(animation, 64, 64, def.Layers, plan: new ModelPlan([new("tracker", ModelStage.Derived, _ => tracker)])));
         tracked.Advance(0.2); tracked.Refresh(); tracked.EvaluateCpuSnapshot();
         Require(tracker.Advances == 1, "Refresh or CPU inspection advanced simulation.");
         var before = tracked.Frame; var oldVertices = before.Layers[0].Positions.ToArray(); tracker.Fail = true;
@@ -64,15 +64,12 @@ internal static class ModelChecks
         public void AdvanceState(double deltaSeconds) => Advances++;
         public void Apply(ParameterSet pose) => pose["shift"] = 3;
     }
-    private sealed class TrackingBehavior : ModelBehavior
+    private sealed class TrackingBehavior : ModelComponent
     {
         public int Advances, Disposals;
         public bool Fail;
-        public override void ResolvePose(ParameterSet pose, double deltaSeconds, bool advance) { if (advance) Advances++; }
-        public override void DeformCpu(int layer, ReadOnlyPose pose, ReadOnlySpan<float> rest, Span<float> output)
-        {
-            rest.CopyTo(output); if (Fail) { output[0] = float.NaN; throw new InvalidOperationException("Injected failure"); }
-        }
+        public override void AdvanceState(ComponentContext c, double delta) => Advances++;
+        public override void EvaluateOutput(ComponentContext c) { if (Fail) throw new InvalidOperationException("Injected failure"); }
         public override void Dispose() => Disposals++;
     }
 }

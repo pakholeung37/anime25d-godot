@@ -1,7 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Anime25D.Core;
+using Anime25D.Runtime;
 using Godot;
 
 namespace Anime25D;
@@ -12,7 +12,7 @@ public interface IGodotDeformationFactory
 {
     Shader ColorShader { get; }
     Shader MaskShader { get; }
-    bool Supports(IModelBehavior behavior);
+    bool Supports(ModelDefinition model);
     IGodotDeformationBinding Create(ModelInstance instance);
 }
 public interface IGodotDeformationBinding : IDisposable

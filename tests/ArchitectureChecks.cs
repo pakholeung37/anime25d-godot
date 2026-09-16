@@ -113,9 +113,13 @@ internal static class ArchitectureChecks
             @"\b(HeadYaw|HeadPitch|BlinkVariant|RigDeformer|PhysicsSolver|AutomaticMotion|ExpressionPose|PartRole|JsonSerializer|File|Directory)\b"),
             "Generic addon contains sample semantics or IO.");
         Require(!runtimeSources.Contains("Anime25D.Sample") && !runtimeSources.Contains("demo/SampleRig"), "Addon depends on sample implementation.");
-        string coreOnly = string.Join("\n", Directory.EnumerateFiles(Path.Combine(root, "addons/anime25d/Core"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
+        string coreOnly = string.Join("\n", Directory.EnumerateFiles(Path.Combine(root, "addons/anime25d/Runtime"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
         Require(!coreOnly.Contains("using Godot") && !coreOnly.Contains("System.IO"), "Core depends on engine or IO.");
         Require(!System.IO.File.Exists(Path.Combine(root, "demo/SampleRig/Rendering/RigRenderer.cs")), "Sample retains a parallel renderer.");
+        Require(!runtimeSources.Contains("IModelBehavior") && !runtimeSources.Contains("CreateBehavior"), "Runtime retains the monolithic behavior API.");
+        string sampleSources = string.Join("\n", Directory.EnumerateFiles(Path.Combine(root, "demo/SampleRig"), "*.cs", SearchOption.AllDirectories).Select(File.ReadAllText));
+        Require(!sampleSources.Contains("SampleReferenceAdapter") && !sampleSources.Contains("SampleBehavior") && !sampleSources.Contains("MotionPipeline"), "Production sample depends on legacy execution.");
+        Require(!sampleSources.Contains("class PhysicsSolver") && !sampleSources.Contains("class FrameParameters"), "Sample duplicates runtime state or physics scheduling.");
         Console.WriteLine($"Architecture checks passed: {checks} assertions.");
         return checks;
     }

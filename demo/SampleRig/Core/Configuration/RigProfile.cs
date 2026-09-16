@@ -32,7 +32,7 @@ public sealed record RigProfile
         return profile;
     }
 
-    public IReadOnlyList<ParameterSpec> CreateCatalog() => Array.AsReadOnly(Core.Parameters.Specs.Select(spec =>
+    public IReadOnlyList<ParameterSpec> CreateCatalog() => Array.AsReadOnly(Core.SampleParameters.Specs.Select(spec =>
         Parameters.TryGetValue(spec.Key, out var range) ? new ParameterSpec(spec.Key, range.Default, range.Minimum, range.Maximum) : spec).ToArray());
 
     public RigProfile CreateSnapshot()

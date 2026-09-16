@@ -2,7 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
-using Anime25D.Core;
+using Anime25D.Runtime;
 using Godot;
 
 namespace Anime25D;
@@ -18,21 +18,25 @@ internal sealed partial class ModelRenderer : Node2D
     private ModelInstance instance = null!;
     private bool released;
     public GeometryBackend Backend { get; private set; }
+    public string? FallbackReason { get; private set; }
     public long LastVertexUploadBytes { get; private set; }
     public void Initialize(ModelView view, ModelInstance instance, GeometryBackend requested)
     {
         this.instance = instance;
-        bool builtIn = instance.Behavior is BasicModelBehavior;
-        bool supports = view.Deformation?.Supports(instance.Behavior) == true;
+        bool builtIn = instance.Definition.Plan.Deformers.Count == 0;
+        IGodotDeformationFactory? factory = view.Deformation;
+        if (factory is null && instance.Definition.Plan.Deformers.Count > 0) factory = new BuiltinGpuFactory();
+        bool supports = factory?.Supports(instance.Definition) == true;
         if (!Enum.IsDefined(requested) || (requested == GeometryBackend.Gpu && !builtIn && !supports))
-            throw new ArgumentException("Requested GPU deformation is unavailable for this model.");
+            throw new ArgumentException("Requested GPU deformation is unavailable for sequence: " + string.Join(", ", instance.Definition.Plan.Deformers.Select(d => d.Id)));
         Backend = requested == GeometryBackend.Cpu || (requested == GeometryBackend.Auto && !builtIn && !supports) ? GeometryBackend.Cpu : GeometryBackend.Gpu;
+        FallbackReason = requested == GeometryBackend.Auto && Backend == GeometryBackend.Cpu ? "No GPU program supports sequence: " + string.Join(", ", instance.Definition.Plan.Deformers.Select(d => d.Id)) : null;
         instance.EvaluateCpuGeometry = Backend == GeometryBackend.Cpu;
         bool custom = Backend == GeometryBackend.Gpu && supports;
-        Shader colorShader = custom ? view.Deformation!.ColorShader : GD.Load<Shader>("res://addons/anime25d/Godot/Shaders/layer.gdshader");
-        Shader maskShader = custom ? view.Deformation!.MaskShader : GD.Load<Shader>("res://addons/anime25d/Godot/Shaders/mask.gdshader");
+        Shader colorShader = custom ? factory!.ColorShader : GD.Load<Shader>("res://addons/anime25d/Godot/Shaders/layer.gdshader");
+        Shader maskShader = custom ? factory!.MaskShader : GD.Load<Shader>("res://addons/anime25d/Godot/Shaders/mask.gdshader");
         if (colorShader is null || maskShader is null) throw new ArgumentException("Missing render shaders.");
-        if (custom) binding = view.Deformation!.Create(instance);
+        if (custom) binding = factory!.Create(instance);
         foreach (var mask in instance.Definition.Masks)
         {
             var viewport = new SubViewport {

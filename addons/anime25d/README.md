@@ -1,165 +1,148 @@
 # Anime25D model runtime
 
-Godot 4.7.2 Mono / .NET 10. Copy this directory to `res://addons/anime25d` and build.
-The editor plugin is optional. `Core` is plain C#; `Godot` owns the model node and rendering backend.
-Models, motions, expressions and extension bindings are authored in code. No animation file loader is required.
+Godot 4.7.2 Mono / .NET 10. Copy this addon into `res://addons/anime25d` and build.
+`Anime25D.Runtime` is plain C#; `Anime25D` supplies Godot integration. No model-specific node subclass or animation file loader is required.
 
-## A complete model, using the built-in renderer
+## Model and animation registration
 
 ```csharp
 using Anime25D;
-using Anime25D.Core;
+using Anime25D.Runtime;
 using Godot;
-using System.Collections.Generic;
 
-// texture is an already-loaded Texture2D supplied by the application.
 var animation = new AnimationModel(
     new[] { new ParameterDefinition("offset", 0, -40, 40) },
-    new Dictionary<string, MotionDefinition>
-    {
-        ["sway"] = new(2, new[]
-        {
+    motions: new Dictionary<string, MotionDefinition> {
+        ["sway"] = new(2, new[] {
             new MotionTrack("offset", MotionCurve.Smooth((0, 0), (0.5, 30), (1.5, -30), (2, 0)))
         }, loop: true)
     });
+var plan = new ModelPlan(components: new[] {
+    new ComponentDefinition("position", ModelStage.Layers,
+        model => new LayerBindingComponent(model, new[] {
+            new LayerParameterBinding("offset", "panel", LayerProperty.TranslationX)
+        }))
+});
 var definition = new ModelDefinition(animation, 256, 256,
-    new[] { new LayerDefinition("panel", GridMeshBuilder.Create(64, 64, 128, 128)) },
-    behavior: model => new BasicModelBehavior(model, new[]
-    {
-        new LayerParameterBinding("offset", "panel", LayerProperty.TranslationX)
-    }));
+    new[] { new LayerDefinition("panel", GridMeshBuilder.Create(64, 64, 128, 128)) }, plan: plan);
 var actor = new AnimeModelNode();
 AddChild(actor);
-actor.Load(new ModelView(definition, new[] { texture }));
+actor.Load(new ModelView(definition, new[] { texture })); // already-loaded Texture2D
 actor.Instance!.Animation.PlayMotion("sway");
 ```
 
-The addon creates meshes, materials and draw nodes. Applications do not need to implement a renderer.
-Default `BasicModelBehavior` displays rest geometry; optional bindings drive translation, rotation
-(in radians, around an explicit pivot), scale and opacity. Binding scale/offset map parameter values
-to properties. Multiple transform bindings compose in declaration order. Scaling usually uses offset 1.
+`AnimationModel` snapshots model-local motion/expression dictionaries. Motion tracks contain timed curves;
+expressions contain persistent parameter values. Both support override/add/multiply and fades. A new motion
+replaces the current motion; a new expression replaces the current expression, with temporary overlap during
+crossfade. Expressions mix after motions. Use `PlayMotion`, `StopMotion`, `SetExpression`, `ClearExpression`.
 
-`ModelDefinition` snapshots layer/mask collections; `MeshDefinition` copies vertices, UVs and indices
-and exposes read-only spans. Mesh vertices are in model coordinates. A definition may be shared by
-multiple instances; each instance owns its animation, overrides, behavior and frame buffers.
+## Component plan
 
-## Model evaluation
+The immutable `ModelPlan` contains ordered component registrations, derived channel definitions and ordered
+deformer definitions. Each component factory creates independent state for each instance. Factories and
+custom definitions must not capture mutable state shared between instances. Use the optional random factory
+on the plan to supply an independent seeded generator per instance.
 
-`ModelInstance` coordinates:
+Stages execute in this order:
 
-1. Sample behavior baseline, optional pre-animation controllers/modifiers.
-2. Main motion, then expression mixing.
-3. Post-animation controllers/modifiers and node `FinalizingPose` input.
-4. Behavior simulation / resolved pose.
-5. Behavior layer properties and user overrides.
-6. CPU vertex evaluation or GPU frame preparation.
-7. Complete frame publication; the Godot node submits and then dispatches playback events.
+1. Base input parameters → `BasePose` components → animation's before hooks.
+2. Motion → expression → animation's after hooks.
+3. `FinalPose` components → node/instance `FinalizingPose` external input.
+4. `Derived` components, including physics.
+5. Reset layer outputs → `Layers` components → authored/user layer overrides.
+6. CPU deformation when selected → validate and publish frame → render → playback notifications.
 
-The parameter-only `AnimationRuntime` remains usable independently. Its `IAnimationOutput` is a
-convenience for non-model consumers; it does not own the model pipeline.
+Components implement `AdvanceState(context, delta)` and `EvaluateOutput(context)`. Refresh calls only the
+second method. Stateless components implement only evaluation. `context.Time` is seconds;
+`TimeMilliseconds` exposes the same model clock accumulated in milliseconds. Animation handles own their
+playback time/speed; all model components share the model clock. Do not advance a private model clock.
 
-Implement `ModelBehavior` (or `IModelBehavior`) for custom algorithms:
+Use `context.Pose` during component evaluation; `context.Frame.Pose` is not the working base-stage pose.
+Do not retain writable buffers, invoke model evaluation recursively, or mutate another component during a frame.
+Channel reads/writes are declared on registration; each channel has one producer, and reads must follow writes.
+A disabled producer emits zero channels. Stateless parameter effects disappear when disabled; disabled stateful
+components freeze their state. Model plans require explicit stage order and reject forward channel references.
 
-- `PreparePose(pose, delta, advance)`: baseline controller output. Advance state only when `advance`.
-- `ResolvePose(pose, delta, advance)`: optional simulation and derived pose; never write back BasePose.
-- `EvaluateLayers(readOnlyPose, layers)`: per-frame visual opacity, transform and draw order.
-- `DeformCpu(layer, readOnlyPose, rest, output)`: write model-space deformed vertices into core-owned output.
-- `Dispose()`: release instance-specific extension state.
+### Included components
 
-The definition's behavior factory must create an independent behavior for each instance. Bind required
-parameter/layer IDs during construction, not in a per-frame name search. Core initializes output buffers;
-CPU deformation must write all vertex coordinates and must not advance simulation or randomness.
-Static topology is fixed for an instance. Invisible layers may retain prior CPU buffers; explicit CPU
-diagnostics evaluate all layers freshly.
+- `SineDriver`: one or more parameter signals, with amplitude/frequency/phase/offset and blend mode.
+- `SmoothDriver`: exponential smoothing of selected parameters, independently stored per instance.
+- `EnvelopeDriver`: repeating attack/hold/release/interval envelope.
+- `ParameterMapDriver`, `SignalMap`, `MotionCurve.Sample`: numeric mappings and code-authored curves.
+- `ChannelWriter`: pure derived scalar/array outputs; span overload avoids per-frame allocations.
+- `SpringBank`: batch spring integration and relative-target displacement output.
+- `LayerBindingComponent`: parameter-to-transform/opacity bindings.
+- `LayerOpacityBinding`: computed opacity mapping; `LayerSelector`: discrete layer selection.
+- `AffineDeformer`, `VertexOffsetDeformer`: ordered geometry operations.
 
-`LayerOverrides` holds persistent user visibility, opacity, order and transform. Behavior layer outputs
-reset every evaluation. Effective opacity multiplies authored, behavior and user values once. Numerics
-uses row vectors: authored transform, then behavior transform, then user transform. The common shader
-applies that final matrix after custom deformation in both CPU and GPU modes.
+`SetParameter(id, value, immediate)` changes base input; immediate also snaps registered smoothing components.
+`SetComponentEnabled(id, enabled)` controls a component. `ResetInputs` resets base inputs and component state,
+but does not stop playback, reset the model clock, clear layer overrides, or re-enable components.
+`Component<T>(id)` is available for explicit custom control outside evaluation; callers must respect component
+lifecycle and avoid state mutation from evaluation callbacks.
 
-## Frames, pause and failure
+## Physics and frame channels
 
-- `actor.Advance(delta)` evaluates, uploads and dispatches; set `AutomaticProcessing = false` when driving manually.
-- `actor.Playing = false` stops automatic advancement. Explicit `RefreshPose()` re-evaluates without advancing time.
-- `Instance.Animation.Paused` freezes advancement and pending playback notifications.
-- `RefreshPose()` samples the current timeline and recomputes derived outputs without simulation integration.
-- Stateful inputs should implement `IPoseController`: `AdvanceState` runs only during advancement; `Apply` may run on refresh.
-  Register in `BeforeControllers` or `AfterControllers`. `IPoseModifier` lists remain convenient for synchronous stateless
-  inputs; their legacy delta is zero on refresh, so they must not unconditionally advance state.
-- `FinalizingPose` is a node-level external input hook, after animation mixing. Its subscriptions survive reloads.
-- `Frame` exposes read-only pose/layer views and a version. Views expire on the next successful evaluation; copy for retention.
-  Preallocated front/back buffers prevent publishing half-written geometry. Extension exceptions fault the instance;
-  rebuild it to recover. Private extension state is not transactionally rolled back.
-- `EvaluateCpuSnapshot()` returns copied, versioned final model-space vertices without changing playback or physics.
-  The renderer uploads pre-transform CPU vertices; diagnostic vertices already include the layer transform and must not be resubmitted.
-- Loading constructs a hidden candidate, validates and initializes it before replacing the old instance. Failure releases
-  candidate resources and leaves the old model usable. Node load/clear commands from callbacks are deferred until submission
-  and event dispatch finish. Old instance events and input bindings are discarded on unload.
+Declare `ChannelDefinition("target", count)` and `ChannelDefinition("lag", count)`. A producer writes targets,
+then a `SpringBank` reads targets and writes lag. Register both reads and writes. Each spring has stiffness,
+damping and displacement scale. Integration subdivides delta by a maximum step; it does not silently discard
+time. More than 10,000 substeps per call is rejected. This is a bounded variable-step solver, not a fixed-step
+accumulator. `SpringState` is available for custom reusable solvers.
 
-All evaluation APIs are synchronous and single-threaded. Do not retain writable callback buffers or recursively advance.
-No global delta truncation or parameter smoothing is imposed by the core.
+`ModelFrame` contains read-only final parameters, numeric channels and layer views. CPU/GPU extensions consume
+this frame and immutable definitions, never private driver/solver state. Frame views expire on the next model
+evaluation; copy values when retaining them. `EvaluateCpuSnapshot` copies current geometry without advancing
+animation, drivers, randomness or physics. Hidden layer CPU buffers can retain previous geometry; diagnostics
+explicitly evaluate all layers.
 
-## Masks and rendering backends
+## Deformer registration
 
-`MaskDefinition(id, sourceLayerIds, sourceThreshold, receiverThreshold)` defines binary coverage.
-A layer refers to one `MaskId`. A mask may union multiple sources and be shared by targets. Sources
-cannot themselves be masked; nested/self-referencing masks are rejected. Hidden sources do not
-contribute, and an empty mask hides the target. Models without masks allocate no mask viewports.
-Source and target geometry use the same final model coordinate system. Default source/receiver
-thresholds are 0.25 / 0.5. Textures use premultiplied alpha, matching the sample importer.
+Subclass `DeformerDefinition`, specify a model-local ID, target layer IDs and channel reads, then put the
+objects into `ModelPlan.Deformers` in execution order. Every target layer applies its matching subsequence.
 
-- `GeometryBackend.Cpu`: custom CPU deformation plus addon mesh uploads.
-- `Gpu`: rest geometry stays on GPU; requires the default Basic behavior or a matching GPU extension.
-- `Auto`: chooses supported GPU deformation, otherwise CPU. `ActualBackend` reports the result.
+```csharp
+public override void Deform(int layer, ModelFrame frame,
+    ReadOnlySpan<float> rest, ReadOnlySpan<float> input, Span<float> output)
+{
+    // rest: immutable original positions; input: previous operation's result.
+    // Write every output coordinate; topology/UV remain unchanged.
+    input.CopyTo(output);
+}
+```
 
-A custom `IGodotDeformationFactory` supplies color/mask Shader resources, behavior compatibility, and
-an instance `IGodotDeformationBinding`. The binding configures addon-created materials and uploads
-frame inputs. It owns only its extension buffers/textures and is disposed by the renderer.
-It must not create its own layer renderer or mask views.
+Coordinates are model-space. The runtime owns traversal and scratch/output buffers. Operations are pure with
+respect to simulation state. Weight baking belongs to immutable model construction. One complex character
+formula can remain a composite operation when splitting would introduce numerical or semantic changes.
+Layer transforms are applied after geometry; authored × computed × user order follows System.Numerics row vectors.
 
-Shared shader ABI lives in `Godot/Shaders/runtime.gdshaderinc`. Define
-`vec2 model_deform(vec2 p, int vertex_id)` then include `color_pass.gdshaderinc` or `mask_pass.gdshaderinc`.
-The addon common passes apply transforms, opacity and binary masking. `runtime_*` uniforms are reserved.
-Bindings should upload from the published `ModelFrame`, and simulation-derived state must be consistent
-with that frame. Custom GPU deformation must remain within `ModelDefinition.Bounds`, a conservative
-model-space bound supplied at construction. No automatic C# to shader conversion is provided.
+## GPU backend
 
-Renderer-owned meshes/materials/mask nodes and extension buffers are released on clear. Supplied textures
-and shaders are borrowed; the caller controls their lifetime and must keep them alive while in use.
-GPU instances do not implicitly evaluate CPU vertices. `LastVertexUploadBytes` exposes submission cost.
+`ModelView(definition, textures, optionalGpuFactory)` provides already-loaded textures and optional shaders.
+`IGodotDeformationFactory.Supports(ModelDefinition)` must match the complete operation sequence/configuration
+it implements; it must not choose a backend by a behavior type. Its binding receives published frames only.
 
-## Motion and expression authoring
+Built-in GPU support covers affine/vertex-offset sequences of up to 16 operations per layer (up to 16,384 vertices
+per layer). Color and mask passes use the same deformation. Unsupported sequences use CPU in Auto mode;
+`BackendFallbackReason` explains why. Explicit GPU mode rejects unsupported models before replacing an existing
+loaded model. Backend selection is model-wide; there is no automatic C#→shader compiler or per-layer hybrid mode.
 
-`MotionCurve.Linear`, `Smooth`, `Step`, `Constant`, and `Keyframe` with `CubicHermite` tangents construct
-immutable curves. Time is in seconds; Hermite slopes are value units per second. Keys must be ordered,
-finite and within motion duration. Outside curve keys, sampling holds the nearest endpoint. Looping
-assets should author matching start/end values.
+`FloatTexture` owns reusable RGBA float storage. `FrameTextureBinding` compiles a declared parameter/channel
+layout and uploads published values. Sample code supplies shader layouts and static uniforms, not a renderer
+or a second parameter packing engine. Custom shader includes supply `model_deform` and use the shared runtime,
+color and mask includes. Borrowed textures and shaders remain caller-owned.
 
-`AnimationModel` registers named `MotionDefinition`s and `ExpressionDefinition`s. Unknown parameter
-IDs fail during model construction. Definitions contain no playback state. Nothing starts automatically.
+## Masks and lifecycle
 
-One main motion and one expression are selected. New entries fade old entries out while fading in;
-this is crossfade, not a sequential queue. Both layers support Override/Add/Multiply. Each layer blends
-weighted targets against its incoming pose; missing channels do not claim a parameter, and excess
-weights are normalized. Expressions hold until replaced/cleared and do not disable other inputs.
+`MaskDefinition` names explicit source layer IDs; a target layer references `MaskId`. Binary source union,
+multiple independent masks, visibility and common transforms are handled by the renderer. Nested and soft
+masks are not supported. Model bounds are conservative authored bounds; maintain them for extreme deformations.
 
-Use `PlayMotion(name, PlayOptions)`, `StopMotion`, `SetExpression`, `ClearExpression`, or stop a specific
-PlaybackHandle. Options override loop, positive speed and fade times; handle pause is independent.
-One-shots release at duration; loops repeat until stopped/replaced, with initial fade-in only. Fades use
-runtime seconds. An outgoing entry can fade even if its timeline is paused.
+`AnimeModelNode` owns instance, meshes, materials, mask viewports and GPU bindings. Candidate load/refresh/submit
+must succeed before replacing the old model. Clear/reload from playback callbacks is deferred to a safe boundary.
+`Playing=false` freezes automatic playback; `RefreshPose` explicitly evaluates new inputs without advancing state.
+`Animation.Paused` also prevents model advancement. Evaluation errors retain the last published frame and fault
+the instance; arbitrary custom component state is not rolled back. Dispose releases component state once.
 
-PlaybackChanged reports Started, Looped, Completed, Interrupted and Stopped. LoopCount aggregates
-crossings in large updates. Model-node callbacks run after upload; callback load/clear is safe. Commands
-made in callbacks affect a subsequent evaluation. Refresh does not dispatch notifications.
-
-## Sample and validation
-
-`demo/SampleRig` compiles old rig/profile input into generic definitions with `SampleModelBuilder`.
-`SampleBehavior` owns anatomy, springs and CPU formulas; `SampleGpuFactory` owns only the matching
-shader ABI/buffers. `AnimeRigNode` is a thin sample authoring facade over `AnimeModelNode`.
-`SampleReferenceAdapter` retains pinned reference input conventions and delta caps for numerical tests;
-production node advancement uses the generic clock.
-
-`tests/consumer` demonstrates real pixel validation of an unrelated model using addon rendering,
-three mask groups, built-in transforms and a custom CPU/GPU extension, without any sample files.
-See `docs/MODEL_RUNTIME_IMPLEMENTATION.md` for results and implementation mapping.
+The old `IModelBehavior`, `BasicModelBehavior`, `CreateBehavior` and `Anime25D.Core` APIs have been removed.
+See `tests/consumer` for a complete independent application using only this addon, including custom GPU fallback,
+mask rendering, component composition, CPU/GPU parity and lifecycle checks.

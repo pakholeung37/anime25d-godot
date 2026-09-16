@@ -5,5 +5,8 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
   </PropertyGroup>
-  <ItemGroup><Compile Remove="tests/**/*.cs" /></ItemGroup>
+  <PropertyGroup Condition="'$(Configuration)' == 'Debug'">
+    <DefineConstants>$(DefineConstants);ANIME25D_TESTS</DefineConstants>
+  </PropertyGroup>
+  <ItemGroup><Compile Remove="tests/**/*.cs" /><Compile Include="tests/Compatibility/**/*.cs" Condition="'$(Configuration)' == 'Debug'" /><Compile Include="tests/Godot/**/*.cs" Condition="'$(Configuration)' == 'Debug'" /></ItemGroup>
 </Project>

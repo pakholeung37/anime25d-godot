@@ -1,6 +1,6 @@
 using System;
 using System.Collections.Generic;
-using Anime25D.Core;
+using Anime25D.Runtime;
 using Godot;
 
 namespace Anime25D;
@@ -13,10 +13,10 @@ public partial class AnimeModelNode : Node2D
     [Export] public bool Playing { get; set; } = true;
     [Export] public bool AutomaticProcessing { get; set; } = true;
     public GeometryBackend? ActualBackend => renderer?.Backend;
+    public string? BackendFallbackReason => renderer?.FallbackReason;
     public long LastVertexUploadBytes => renderer?.LastVertexUploadBytes ?? 0;
     public event Action<ParameterSet>? FinalizingPose;
-    private sealed class Input(Action<ParameterSet> apply) : IPoseModifier { public void Apply(ParameterSet pose, double deltaSeconds) => apply(pose); }
-    private Input? input;
+    private Action<ParameterSet>? input;
     private ModelRenderer? renderer;
     private bool busy;
     private readonly Queue<Action> pending = new();
@@ -42,7 +42,7 @@ public partial class AnimeModelNode : Node2D
         }
         ClearNow();
         Instance = candidate; renderer = display;
-        input = new(pose => FinalizingPose?.Invoke(pose)); candidate.Animation.AfterAnimation.Add(input);
+        input = pose => FinalizingPose?.Invoke(pose); candidate.FinalizingPose += input;
         display.Visible = true;
     }
     public override void _Process(double delta)
@@ -73,7 +73,7 @@ public partial class AnimeModelNode : Node2D
     }
     private void ClearNow()
     {
-        if (Instance is not null && input is not null) Instance.Animation.AfterAnimation.Remove(input);
+        if (Instance is not null && input is not null) Instance.FinalizingPose -= input;
         input = null;
         renderer?.Release(); renderer?.Free(); renderer = null;
         Instance?.Dispose(); Instance = null; ModelCleared();

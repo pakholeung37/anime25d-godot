@@ -1,16 +1,16 @@
 using System;
-using Anime25D.Sample;
-using Anime25D.Core;
+using Anime25D;
+using Anime25D.Runtime;
 using Godot;
 
 namespace Anime25D.Examples;
 
-/// <summary>Demo-only desktop adapter. Attach under an AnimeRigNode or assign Character explicitly.</summary>
+/// <summary>Demo-only desktop adapter. Attach under an AnimeModelNode or assign Character explicitly.</summary>
 public partial class DesktopMouseTracking : Node
 {
     [Export] public bool Enabled { get; set; } = true;
     [Export]
-    public AnimeRigNode? Character
+    public AnimeModelNode? Character
     {
         get => character;
         set
@@ -27,8 +27,8 @@ public partial class DesktopMouseTracking : Node
     [Export] public double HorizontalGazeGain { get => response.HorizontalGazeGain; set => response = response with { HorizontalGazeGain = ValidGain(value) }; }
     [Export] public double VerticalGazeGain { get => response.VerticalGazeGain; set => response = response with { VerticalGazeGain = ValidGain(value) }; }
 
-    private AnimeRigNode? character;
-    private AnimeRigNode? boundCharacter;
+    private AnimeModelNode? character;
+    private AnimeModelNode? boundCharacter;
     private MouseTrackingResponse response = new();
 
     public override void _EnterTree() => Bind();
@@ -36,7 +36,7 @@ public partial class DesktopMouseTracking : Node
 
     private void Bind()
     {
-        var target = character ?? GetParent() as AnimeRigNode;
+        var target = character ?? GetParent() as AnimeModelNode;
         if (target is null || !GodotObject.IsInstanceValid(target)) return;
         boundCharacter = target;
         target.FinalizingPose += Apply;

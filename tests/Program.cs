@@ -93,6 +93,8 @@ foreach (var fps in new[] { 10, 30, 60, 144 })
 int architectureChecks = ArchitectureChecks.Run(root);
 int animationChecks = AnimationChecks.Run();
 int modelChecks = ModelChecks.Run();
-var report = new { cases, comparisons, maxPositionError, maxParameterError, sawLongBlink, architectureChecks, animationChecks, modelChecks, status = "passed" };
+int compositionChecks = CompositionChecks.Run();
+int sampleCompositionComparisons = SampleCompositionChecks.Run(root);
+var report = new { cases, comparisons, maxPositionError, maxParameterError, sawLongBlink, architectureChecks, animationChecks, modelChecks, compositionChecks, sampleCompositionComparisons, status = "passed" };
 File.WriteAllText(Path.Combine(root, "artifacts/core-tests.json"), JsonSerializer.Serialize(report, new JsonSerializerOptions { WriteIndented = true }));
 Console.WriteLine(JsonSerializer.Serialize(report));

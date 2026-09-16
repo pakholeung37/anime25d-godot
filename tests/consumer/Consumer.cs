@@ -3,7 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Anime25D;
-using Anime25D.Core;
+using Anime25D.Runtime;
 using Godot;
 
 // Tests real pixels using only addon-owned meshes, renderer, masks and model nodes.
@@ -41,9 +41,9 @@ public partial class Consumer : Node
             }
             layerDefinitions.Add(new("extra", GridMeshBuilder.Create(50, 8, 10, 20), DrawOrder: 0));
             masks[0] = new("group0", new[] { "source0", "extra" });
-            var customDefinition = new ModelDefinition(animation, 128, 128, layerDefinitions, masks, _ => new WarpBehavior());
+            var customDefinition = new ModelDefinition(animation, 128, 128, layerDefinitions, masks, plan: new ModelPlan(deformers: [new WarpBehavior(layerDefinitions.Select(l => l.Id))]));
             var basicDefinition = new ModelDefinition(animation, 128, 128, layerDefinitions, masks,
-                d => new BasicModelBehavior(d, d.Layers.Select(l => new LayerParameterBinding("warp", l.Id, LayerProperty.TranslationX))));
+                plan: new ModelPlan([new("bindings", ModelStage.Layers, d => new LayerBindingComponent(d, d.Layers.Select(l => new LayerParameterBinding("warp", l.Id, LayerProperty.TranslationX))))]));
             var cpu = Create(); var gpu = Create(); var basic = Create();
             using var factory = new WarpGpu();
             var customView = new ModelView(customDefinition, new[] { white, red }, factory);
@@ -89,16 +89,38 @@ public partial class Consumer : Node
             basic.Actor.ClearModel(); await DrawFrames(); using var empty = basic.View.GetTexture().GetImage();
             Require(empty.GetData().Where((_, i) => i % 4 == 3).All(v => v == 0), "Clear left visible content.");
             for (int i = 0; i < 4; i++) gpu.Actor.Load(customView, GeometryBackend.Gpu);
+            // Independent composition: built-in drivers/physics/layer bindings and ordered GPU operations.
+            var panel = new LayerDefinition("panel", GridMeshBuilder.Create(8, 8, 20, 20));
+            var composed = new ModelDefinition(animation, 128, 128, new[] { panel }, plan: new ModelPlan(
+                components: new ComponentDefinition[] {
+                    new("wave", ModelStage.BasePose, d => new SineDriver(d, new SineBinding("warp", 1, 2))),
+                    new("target", ModelStage.Derived, _ => new ChannelWriter("target", c => new[] { c.Pose["warp"] }), writes: new[] { "target" }),
+                    new("spring", ModelStage.Derived, _ => new SpringBank("target", "lag", new[] { new SpringBinding(70, 9) }), reads: new[] { "target" }, writes: new[] { "lag" }),
+                    new("alpha", ModelStage.Layers, d => new LayerOpacityBinding(d, "panel", c => Math.Clamp(.5 + c.Channels.Scalar("lag"), 0, 1)), reads: new[] {"lag"})
+                }, channels: new[] { new ChannelDefinition("target"), new ChannelDefinition("lag") },
+                deformers: new DeformerDefinition[] {
+                    new AffineDeformer("translate", new[] { "panel" }, System.Numerics.Matrix3x2.CreateTranslation(3, 0)),
+                    new AffineDeformer("scale", new[] { "panel" }, System.Numerics.Matrix3x2.CreateScale(2)),
+                    new VertexOffsetDeformer("offset", new[] { "panel" }, "warp", Enumerable.Range(0, panel.Mesh.VertexCount * 2).Select(i => i % 2 == 0 ? 2f : 0f).ToArray())
+                }));
+            cpu.Actor.Load(new(composed, new[] { white }), GeometryBackend.Cpu);
+            gpu.Actor.Load(new(composed, new[] { white }), GeometryBackend.Gpu);
+            cpu.Actor.Advance(.2); gpu.Actor.Advance(.2); await DrawFrames();
+            using var composedCpu = cpu.View.GetTexture().GetImage(); using var composedGpu = gpu.View.GetTexture().GetImage();
+            Require(composedCpu.GetData().SequenceEqual(composedGpu.GetData()), "Built-in ordered CPU/GPU sequence differs.");
+            Require(gpu.Actor.LastVertexUploadBytes == 0, "Composed GPU uploaded vertices.");
+            Require(cpu.Actor.Instance!.Frame.Channels.Scalar("lag") == gpu.Actor.Instance!.Frame.Channels.Scalar("lag"), "GPU ran different physics.");
+            Require(composedGpu.GetPixel(28, 20).A > 0, "Composed model did not render.");
             cpu.View.Free(); gpu.View.Free(); basic.View.Free(); await DrawFrames();
             GD.Print($"PASS: {assertions} independent model/render/mask/lifecycle assertions, with no sample implementation or custom renderer.");
             GetTree().Quit();
         }
         catch (Exception error) { GD.PushError(error.ToString()); GetTree().Quit(1); }
     }
-    private sealed class WarpBehavior : ModelBehavior
+    private sealed class WarpBehavior(IEnumerable<string> layers) : DeformerDefinition("warp", layers)
     {
-        public override void DeformCpu(int layer, ReadOnlyPose pose, ReadOnlySpan<float> rest, Span<float> output)
-        { rest.CopyTo(output); for (int i = 0; i < output.Length; i += 2) output[i] += (float)pose["warp"]; }
+        public override void Deform(int layer, ModelFrame frame, ReadOnlySpan<float> rest, ReadOnlySpan<float> input, Span<float> output)
+        { input.CopyTo(output); for (int i = 0; i < output.Length; i += 2) output[i] += (float)frame.Pose["warp"]; }
     }
     private sealed class WarpGpu : IGodotDeformationFactory, IDisposable
     {
@@ -126,7 +148,7 @@ public partial class Consumer : Node
             void vertex() { VERTEX.x += warp; VERTEX = runtime_position(VERTEX); }
             void fragment() { if (texture(TEXTURE, UV).a < runtime_source_threshold) discard; COLOR = vec4(1.0); }
             """ };
-        public bool Supports(IModelBehavior behavior) => behavior is WarpBehavior;
+        public bool Supports(ModelDefinition model) => model.Plan.Deformers.Count == 1 && model.Plan.Deformers[0] is WarpBehavior;
         public IGodotDeformationBinding Create(ModelInstance instance) => new WarpBinding();
         public void Dispose() { ColorShader.Dispose(); MaskShader.Dispose(); }
     }
@@ -142,7 +164,7 @@ public partial class Consumer : Node
         public int Disposals;
         public Shader ColorShader => shaders.ColorShader;
         public Shader MaskShader => shaders.MaskShader;
-        public bool Supports(IModelBehavior behavior) => true;
+        public bool Supports(ModelDefinition model) => true;
         public IGodotDeformationBinding Create(ModelInstance instance) => new Failure(this);
         private sealed class Failure(FailingGpu owner) : IGodotDeformationBinding
         {

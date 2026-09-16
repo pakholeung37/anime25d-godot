@@ -26,7 +26,7 @@ public sealed class RigMeshGeometry
         double cell = (part.PhysicsMesh ? settings.PhysicsCellPixels : settings.BaseCellPixels) * Math.Max(settings.MinimumScale, rig.Canvas.Width / settings.ReferenceCanvasWidth);
         var (columns, rows) = RigMath.MeshSize(part.Width, part.Height, cell);
         int vertexCount = (columns + 1) * (rows + 1);
-        var mesh = Anime25D.Core.GridMeshBuilder.Create(part.X, part.Y, part.Width, part.Height, columns, rows);
+        var mesh = Anime25D.Runtime.GridMeshBuilder.Create(part.X, part.Y, part.Width, part.Height, columns, rows);
         restPositions = mesh.RestPositions.ToArray();
         textureCoordinates = mesh.UV.ToArray();
         triangleIndices = mesh.Triangles.ToArray();
